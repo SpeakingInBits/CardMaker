@@ -1,0 +1,696 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trading Card Maker</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+        }
+
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 30px;
+            font-size: 2.5em;
+        }
+
+        .main-layout {
+            display: grid;
+            grid-template-columns: 300px 1fr;
+            gap: 30px;
+            margin-bottom: 30px;
+        }
+
+        /* Upload Area */
+        .upload-section {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 20px;
+        }
+
+        .upload-section h2 {
+            font-size: 1.3em;
+            margin-bottom: 15px;
+            color: #444;
+        }
+
+        .upload-area {
+            border: 3px dashed #667eea;
+            border-radius: 10px;
+            padding: 30px;
+            text-align: center;
+            background: white;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin-bottom: 20px;
+        }
+
+        .upload-area:hover {
+            background: #f0f4ff;
+            border-color: #764ba2;
+        }
+
+        .upload-area.drag-over {
+            background: #e8f0ff;
+            border-color: #4CAF50;
+        }
+
+        .upload-icon {
+            font-size: 3em;
+            color: #667eea;
+            margin-bottom: 10px;
+        }
+
+        .uploaded-images {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .uploaded-image {
+            position: relative;
+            cursor: grab;
+            border-radius: 5px;
+            overflow: hidden;
+            border: 2px solid #ddd;
+            transition: all 0.2s;
+        }
+
+        .uploaded-image:hover {
+            border-color: #667eea;
+            transform: scale(1.05);
+        }
+
+        .uploaded-image img {
+            width: 100%;
+            height: 100px;
+            object-fit: cover;
+            display: block;
+        }
+
+        .uploaded-image .remove-btn {
+            position: absolute;
+            top: 5px;
+            right: 5px;
+            background: rgba(255,0,0,0.8);
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 25px;
+            height: 25px;
+            cursor: pointer;
+            font-size: 16px;
+            line-height: 1;
+        }
+
+        /* Card Templates */
+        .templates-section {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 30px;
+        }
+
+        .card-template {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 20px;
+        }
+
+        .card-template h2 {
+            font-size: 1.3em;
+            margin-bottom: 15px;
+            color: #444;
+        }
+
+        .canvas-container {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            border: 2px solid #ddd;
+            margin-bottom: 15px;
+        }
+
+        canvas {
+            max-width: 100%;
+            height: auto;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+
+        /* Controls */
+        .controls {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        .controls h3 {
+            margin-bottom: 15px;
+            color: #444;
+        }
+
+        .control-group {
+            margin-bottom: 15px;
+        }
+
+        .control-group label {
+            display: block;
+            margin-bottom: 5px;
+            color: #555;
+            font-weight: bold;
+        }
+
+        .control-group input,
+        .control-group select,
+        .control-group textarea {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+
+        .control-group textarea {
+            resize: vertical;
+            min-height: 60px;
+            font-family: inherit;
+        }
+
+        .color-size-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: bold;
+            transition: all 0.3s;
+            width: 100%;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+
+        .export-btn {
+            margin-top: 10px;
+        }
+
+        /* Tabs for card side */
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .tab {
+            flex: 1;
+            padding: 10px;
+            background: #e0e0e0;
+            border: none;
+            cursor: pointer;
+            border-radius: 5px;
+            font-weight: bold;
+        }
+
+        .tab.active {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .card-controls {
+            display: none;
+        }
+
+        .card-controls.active {
+            display: block;
+        }
+
+        /* Responsive */
+        @media (max-width: 1200px) {
+            .main-layout {
+                grid-template-columns: 250px 1fr;
+            }
+        }
+
+        @media (max-width: 900px) {
+            .main-layout {
+                grid-template-columns: 1fr;
+            }
+
+            .templates-section {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎴 Trading Card Maker</h1>
+        
+        <div class="main-layout">
+            <!-- Upload Section -->
+            <div class="upload-section">
+                <h2>📸 Upload Photos</h2>
+                <div class="upload-area" id="uploadArea">
+                    <div class="upload-icon">⬆️</div>
+                    <p>Drag & Drop photos here<br>or click to browse</p>
+                    <input type="file" id="fileInput" accept="image/*" multiple style="display: none;">
+                </div>
+                <div class="uploaded-images" id="uploadedImages"></div>
+            </div>
+
+            <!-- Templates Section -->
+            <div class="templates-section">
+                <!-- Card Front -->
+                <div class="card-template">
+                    <h2>Card Front</h2>
+                    <div class="canvas-container">
+                        <canvas id="cardFront" width="750" height="1050"></canvas>
+                    </div>
+                    
+                    <div class="controls">
+                        <div class="control-group">
+                            <label>Card Title:</label>
+                            <input type="text" id="frontTitle" placeholder="Enter title..." maxlength="30">
+                        </div>
+                        <div class="control-group">
+                            <label>Card Number (3 digits):</label>
+                            <input type="number" id="cardNumber" placeholder="001" min="0" max="999" value="1">
+                        </div>
+                        <div class="control-group">
+                            <label>Bottom Text:</label>
+                            <textarea id="frontText" placeholder="Enter description..."></textarea>
+                        </div>
+                        <div class="control-group">
+                            <label>Font Family:</label>
+                            <select id="frontFont">
+                                <option value="Arial">Arial</option>
+                                <option value="Georgia">Georgia</option>
+                                <option value="Times New Roman">Times New Roman</option>
+                                <option value="Courier New">Courier New</option>
+                                <option value="Verdana">Verdana</option>
+                                <option value="Comic Sans MS">Comic Sans MS</option>
+                                <option value="Impact">Impact</option>
+                            </select>
+                        </div>
+                        <div class="color-size-row">
+                            <div class="control-group">
+                                <label>Font Size:</label>
+                                <input type="range" id="frontFontSize" min="12" max="48" value="20">
+                                <span id="frontFontSizeValue">20px</span>
+                            </div>
+                            <div class="control-group">
+                                <label>Font Color:</label>
+                                <input type="color" id="frontColor" value="#000000">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <button class="export-btn" onclick="exportCard('front')">💾 Export Front as PNG</button>
+                </div>
+
+                <!-- Card Back -->
+                <div class="card-template">
+                    <h2>Card Back</h2>
+                    <div class="canvas-container">
+                        <canvas id="cardBack" width="750" height="1050"></canvas>
+                    </div>
+                    
+                    <div class="controls">
+                        <div class="control-group">
+                            <label>Back Text:</label>
+                            <textarea id="backText" placeholder="Enter back text..." rows="6"></textarea>
+                        </div>
+                        <div class="control-group">
+                            <label>Font Family:</label>
+                            <select id="backFont">
+                                <option value="Arial">Arial</option>
+                                <option value="Georgia">Georgia</option>
+                                <option value="Times New Roman">Times New Roman</option>
+                                <option value="Courier New">Courier New</option>
+                                <option value="Verdana">Verdana</option>
+                                <option value="Comic Sans MS">Comic Sans MS</option>
+                                <option value="Impact">Impact</option>
+                            </select>
+                        </div>
+                        <div class="color-size-row">
+                            <div class="control-group">
+                                <label>Font Size:</label>
+                                <input type="range" id="backFontSize" min="12" max="48" value="24">
+                                <span id="backFontSizeValue">24px</span>
+                            </div>
+                            <div class="control-group">
+                                <label>Font Color:</label>
+                                <input type="color" id="backColor" value="#000000">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <button class="export-btn" onclick="exportCard('back')">💾 Export Back as PNG</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // State management
+        let uploadedPhotos = [];
+        let currentFrontImage = null;
+        let frontImagePosition = { x: 75, y: 200, width: 600, height: 400 };
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            setupUploadArea();
+            setupCanvasDropZones();
+            setupControls();
+            drawCards();
+        });
+
+        // Upload Area Setup
+        function setupUploadArea() {
+            const uploadArea = document.getElementById('uploadArea');
+            const fileInput = document.getElementById('fileInput');
+
+            uploadArea.addEventListener('click', () => fileInput.click());
+            
+            uploadArea.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                uploadArea.classList.add('drag-over');
+            });
+
+            uploadArea.addEventListener('dragleave', () => {
+                uploadArea.classList.remove('drag-over');
+            });
+
+            uploadArea.addEventListener('drop', (e) => {
+                e.preventDefault();
+                uploadArea.classList.remove('drag-over');
+                handleFiles(e.dataTransfer.files);
+            });
+
+            fileInput.addEventListener('change', (e) => {
+                handleFiles(e.target.files);
+            });
+        }
+
+        function handleFiles(files) {
+            Array.from(files).forEach(file => {
+                if (file.type.startsWith('image/')) {
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        const img = new Image();
+                        img.onload = () => {
+                            const id = Date.now() + Math.random();
+                            uploadedPhotos.push({ id, data: e.target.result, img });
+                            displayUploadedImages();
+                        };
+                        img.src = e.target.result;
+                    };
+                    reader.readAsDataURL(file);
+                }
+            });
+        }
+
+        function displayUploadedImages() {
+            const container = document.getElementById('uploadedImages');
+            container.innerHTML = '';
+            
+            uploadedPhotos.forEach(photo => {
+                const div = document.createElement('div');
+                div.className = 'uploaded-image';
+                div.draggable = true;
+                div.dataset.photoId = photo.id;
+                
+                div.innerHTML = `
+                    <img src="${photo.data}" alt="Uploaded">
+                    <button class="remove-btn" onclick="removePhoto(${photo.id})">×</button>
+                `;
+                
+                div.addEventListener('dragstart', (e) => {
+                    e.dataTransfer.setData('photoId', photo.id);
+                });
+                
+                container.appendChild(div);
+            });
+        }
+
+        function removePhoto(photoId) {
+            uploadedPhotos = uploadedPhotos.filter(p => p.id !== photoId);
+            if (currentFrontImage && currentFrontImage.id === photoId) {
+                currentFrontImage = null;
+            }
+            displayUploadedImages();
+            drawCards();
+        }
+
+        // Canvas Drop Zones
+        function setupCanvasDropZones() {
+            const frontCanvas = document.getElementById('cardFront');
+            
+            frontCanvas.addEventListener('dragover', (e) => {
+                e.preventDefault();
+            });
+
+            frontCanvas.addEventListener('drop', (e) => {
+                e.preventDefault();
+                const photoId = parseFloat(e.dataTransfer.getData('photoId'));
+                const photo = uploadedPhotos.find(p => p.id === photoId);
+                
+                if (photo) {
+                    currentFrontImage = photo;
+                    drawCards();
+                }
+            });
+        }
+
+        // Controls Setup
+        function setupControls() {
+            // Front card controls
+            document.getElementById('frontTitle').addEventListener('input', drawCards);
+            document.getElementById('cardNumber').addEventListener('input', drawCards);
+            document.getElementById('frontText').addEventListener('input', drawCards);
+            document.getElementById('frontFont').addEventListener('change', drawCards);
+            document.getElementById('frontFontSize').addEventListener('input', function() {
+                document.getElementById('frontFontSizeValue').textContent = this.value + 'px';
+                drawCards();
+            });
+            document.getElementById('frontColor').addEventListener('input', drawCards);
+
+            // Back card controls
+            document.getElementById('backText').addEventListener('input', drawCards);
+            document.getElementById('backFont').addEventListener('change', drawCards);
+            document.getElementById('backFontSize').addEventListener('input', function() {
+                document.getElementById('backFontSizeValue').textContent = this.value + 'px';
+                drawCards();
+            });
+            document.getElementById('backColor').addEventListener('input', drawCards);
+        }
+
+        // Draw Cards
+        function drawCards() {
+            drawCardFront();
+            drawCardBack();
+        }
+
+        function drawCardFront() {
+            const canvas = document.getElementById('cardFront');
+            const ctx = canvas.getContext('2d');
+            
+            // Clear canvas
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Border
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.strokeStyle = '#333333';
+            ctx.lineWidth = 20;
+            ctx.strokeRect(10, 10, canvas.width - 20, canvas.height - 20);
+            
+            // Inner border
+            ctx.strokeStyle = '#666666';
+            ctx.lineWidth = 3;
+            ctx.strokeRect(40, 40, canvas.width - 80, canvas.height - 80);
+            
+            // Title area background
+            ctx.fillStyle = '#f0f0f0';
+            ctx.fillRect(50, 50, canvas.width - 100, 120);
+            
+            // Title
+            const title = document.getElementById('frontTitle').value || 'Card Title';
+            const titleFont = document.getElementById('frontFont').value;
+            ctx.fillStyle = '#000000';
+            ctx.font = `bold 48px ${titleFont}`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(title, canvas.width / 2, 110, canvas.width - 120);
+            
+            // Card Number
+            const cardNum = document.getElementById('cardNumber').value || '1';
+            const paddedNum = String(cardNum).padStart(3, '0');
+            ctx.font = `bold 36px ${titleFont}`;
+            ctx.fillStyle = '#666666';
+            ctx.textAlign = 'right';
+            ctx.fillText(`#${paddedNum}`, canvas.width - 70, 110);
+            
+            // Photo area
+            const photoX = 75;
+            const photoY = 200;
+            const photoWidth = 600;
+            const photoHeight = 400;
+            
+            if (currentFrontImage && currentFrontImage.img) {
+                ctx.save();
+                ctx.beginPath();
+                ctx.rect(photoX, photoY, photoWidth, photoHeight);
+                ctx.clip();
+                
+                const img = currentFrontImage.img;
+                const scale = Math.max(photoWidth / img.width, photoHeight / img.height);
+                const scaledWidth = img.width * scale;
+                const scaledHeight = img.height * scale;
+                const x = photoX + (photoWidth - scaledWidth) / 2;
+                const y = photoY + (photoHeight - scaledHeight) / 2;
+                
+                ctx.drawImage(img, x, y, scaledWidth, scaledHeight);
+                ctx.restore();
+            } else {
+                ctx.fillStyle = '#e0e0e0';
+                ctx.fillRect(photoX, photoY, photoWidth, photoHeight);
+                ctx.fillStyle = '#999999';
+                ctx.font = '24px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText('Drop photo here', canvas.width / 2, photoY + photoHeight / 2);
+            }
+            
+            ctx.strokeStyle = '#333333';
+            ctx.lineWidth = 3;
+            ctx.strokeRect(photoX, photoY, photoWidth, photoHeight);
+            
+            // Bottom text area
+            const bottomText = document.getElementById('frontText').value || '';
+            const fontSize = document.getElementById('frontFontSize').value;
+            const fontFamily = document.getElementById('frontFont').value;
+            const fontColor = document.getElementById('frontColor').value;
+            
+            ctx.fillStyle = fontColor;
+            ctx.font = `${fontSize}px ${fontFamily}`;
+            ctx.textAlign = 'left';
+            
+            const textX = 75;
+            const textY = 640;
+            const textWidth = 600;
+            const lineHeight = parseInt(fontSize) * 1.4;
+            
+            wrapText(ctx, bottomText, textX, textY, textWidth, lineHeight);
+        }
+
+        function drawCardBack() {
+            const canvas = document.getElementById('cardBack');
+            const ctx = canvas.getContext('2d');
+            
+            // Clear canvas
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Border
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.strokeStyle = '#333333';
+            ctx.lineWidth = 20;
+            ctx.strokeRect(10, 10, canvas.width - 20, canvas.height - 20);
+            
+            // Inner border
+            ctx.strokeStyle = '#666666';
+            ctx.lineWidth = 3;
+            ctx.strokeRect(40, 40, canvas.width - 80, canvas.height - 80);
+            
+            // Decorative pattern background
+            ctx.fillStyle = '#f8f8f8';
+            ctx.fillRect(50, 50, canvas.width - 100, canvas.height - 100);
+            
+            // Center text area
+            const backText = document.getElementById('backText').value || 'Card Back Text';
+            const fontSize = document.getElementById('backFontSize').value;
+            const fontFamily = document.getElementById('backFont').value;
+            const fontColor = document.getElementById('backColor').value;
+            
+            ctx.fillStyle = fontColor;
+            ctx.font = `${fontSize}px ${fontFamily}`;
+            ctx.textAlign = 'center';
+            
+            const textX = canvas.width / 2;
+            const textY = canvas.height / 2 - 100;
+            const textWidth = 550;
+            const lineHeight = parseInt(fontSize) * 1.4;
+            
+            ctx.textAlign = 'left';
+            wrapText(ctx, backText, (canvas.width - textWidth) / 2, textY, textWidth, lineHeight);
+        }
+
+        function wrapText(ctx, text, x, y, maxWidth, lineHeight) {
+            const words = text.split(' ');
+            let line = '';
+            let currentY = y;
+            
+            for (let i = 0; i < words.length; i++) {
+                const testLine = line + words[i] + ' ';
+                const metrics = ctx.measureText(testLine);
+                
+                if (metrics.width > maxWidth && i > 0) {
+                    ctx.fillText(line, x, currentY);
+                    line = words[i] + ' ';
+                    currentY += lineHeight;
+                } else {
+                    line = testLine;
+                }
+            }
+            ctx.fillText(line, x, currentY);
+        }
+
+        // Export Functions
+        function exportCard(side) {
+            const canvas = side === 'front' ? document.getElementById('cardFront') : document.getElementById('cardBack');
+            const link = document.createElement('a');
+            const title = side === 'front' ? document.getElementById('frontTitle').value : 'back';
+            const filename = `trading-card-${side}-${title.replace(/\s+/g, '-').toLowerCase() || 'untitled'}.png`;
+            
+            link.download = filename;
+            link.href = canvas.toDataURL('image/png');
+            link.click();
+        }
+    </script>
+</body>
+</html>
