@@ -628,7 +628,7 @@ function drawCardFront() {
     ctx.fillStyle = '#ffffff';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    // Background image (if set)
+    // Background image (if set) - overscan to avoid any edge gaps
     if (currentFrontBackground && currentFrontBackground.img) {
         ctx.save();
         ctx.beginPath();
@@ -641,8 +641,12 @@ function drawCardFront() {
         const scaledHeight = img.height * scale;
         const x = (canvas.width - scaledWidth) / 2;
         const y = (canvas.height - scaledHeight) / 2;
+        const dx = Math.floor(x) - 1;
+        const dy = Math.floor(y) - 1;
+        const dw = Math.ceil(scaledWidth) + 2;
+        const dh = Math.ceil(scaledHeight) + 2;
         
-        ctx.drawImage(img, x, y, scaledWidth, scaledHeight);
+        ctx.drawImage(img, dx, dy, dw, dh);
         ctx.restore();
     }
     
@@ -740,7 +744,7 @@ function drawCardBack() {
     ctx.fillStyle = '#ffffff';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    // Background image (if set)
+    // Background image (if set) - overscan to avoid any edge gaps
     if (currentBackBackground && currentBackBackground.img) {
         ctx.save();
         ctx.beginPath();
@@ -753,8 +757,12 @@ function drawCardBack() {
         const scaledHeight = img.height * scale;
         const x = (canvas.width - scaledWidth) / 2;
         const y = (canvas.height - scaledHeight) / 2;
+        const dx = Math.floor(x) - 1;
+        const dy = Math.floor(y) - 1;
+        const dw = Math.ceil(scaledWidth) + 2;
+        const dh = Math.ceil(scaledHeight) + 2;
         
-        ctx.drawImage(img, x, y, scaledWidth, scaledHeight);
+        ctx.drawImage(img, dx, dy, dw, dh);
         ctx.restore();
     }
 
