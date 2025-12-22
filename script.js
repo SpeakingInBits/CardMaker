@@ -669,8 +669,8 @@ function drawCardFront() {
     const paddedNum = String(cardNum).padStart(3, '0');
     ctx.font = `bold ${numberStyle.size}px ${numberStyle.font}`;
     ctx.fillStyle = numberStyle.color;
-    ctx.textAlign = 'right';
-    ctx.fillText(`#${paddedNum}`, frontNumberPosition.x + 70, frontNumberPosition.y + 60);
+    ctx.textAlign = 'left';
+    ctx.fillText(`#${paddedNum}`, frontNumberPosition.x + 10, frontNumberPosition.y + 60);
     
     // Photo area with resize handles
     const photoX = frontImagePosition.x;
