@@ -650,14 +650,10 @@ function drawCardFront() {
         ctx.restore();
     }
     
+    // Outer border always; inner border removed
     ctx.strokeStyle = '#333333';
     ctx.lineWidth = 20;
     ctx.strokeRect(10, 10, canvas.width - 20, canvas.height - 20);
-    
-    // Inner border
-    ctx.strokeStyle = '#666666';
-    ctx.lineWidth = 3;
-    ctx.strokeRect(40, 40, canvas.width - 80, canvas.height - 80);
     
     // Title - transparent background (removed gray fill)
     const title = document.getElementById('frontTitle').value || 'Card Title';
@@ -766,17 +762,13 @@ function drawCardBack() {
         ctx.restore();
     }
 
+    // Outer border always; inner border removed
     ctx.strokeStyle = '#333333';
     ctx.lineWidth = 20;
     ctx.strokeRect(10, 10, canvas.width - 20, canvas.height - 20);
 
-    // Inner border
-    ctx.strokeStyle = '#666666';
-    ctx.lineWidth = 3;
-    ctx.strokeRect(40, 40, canvas.width - 80, canvas.height - 80);
-
     // Decorative pattern background (only if no background image)
-    if (!currentBackBackground) {
+    if (!(currentBackBackground && currentBackBackground.img)) {
         ctx.fillStyle = '#f8f8f8';
         ctx.fillRect(50, 50, canvas.width - 100, canvas.height - 100);
     }
@@ -930,6 +922,8 @@ function drawLineSegments(ctx, segments, startX, y, maxWidth, align) {
     }
 
     // Draw each segment
+    // Force left anchoring to prevent overlap regardless of prior ctx.textAlign
+    ctx.textAlign = 'left';
     segments.forEach(seg => {
         ctx.font = seg.font;
         ctx.fillStyle = seg.color;
