@@ -612,12 +612,12 @@ function setupControls() {
 }
 
 // Draw Cards
-function drawCards() {
-    drawCardFront();
-    drawCardBack();
+function drawCards(showHandles = true) {
+    drawCardFront(showHandles);
+    drawCardBack(showHandles);
 }
 
-function drawCardFront() {
+function drawCardFront(showHandles = true) {
     const canvas = document.getElementById('cardFront');
     const ctx = canvas.getContext('2d');
     
@@ -710,9 +710,11 @@ function drawCardFront() {
     ctx.strokeRect(photoX, photoY, photoWidth, photoHeight);
     
     // Draw resize handles
-    ctx.fillStyle = '#667eea';
-    ctx.fillRect(photoX + photoWidth - 10, photoY + photoHeight / 2 - 8, 10, 16);
-    ctx.fillRect(photoX + photoWidth / 2 - 8, photoY + photoHeight - 10, 16, 10);
+    if (showHandles) {
+        ctx.fillStyle = '#667eea';
+        ctx.fillRect(photoX + photoWidth - 10, photoY + photoHeight / 2 - 8, 10, 16);
+        ctx.fillRect(photoX + photoWidth / 2 - 8, photoY + photoHeight - 10, 16, 10);
+    }
     
     // Bottom text area
     if (!frontTextEditor) return;
@@ -729,7 +731,7 @@ function drawCardFront() {
     renderRichTextOnCanvas(ctx, delta, textX, textY, textWidth, baseFontSize, baseFontFamily, baseColor);
 }
 
-function drawCardBack() {
+function drawCardBack(showHandles = true) {
     const canvas = document.getElementById('cardBack');
     const ctx = canvas.getContext('2d');
 
@@ -1086,6 +1088,9 @@ function updatePhotoPreview() {
 
 // Export Functions
 function exportCard(side) {
+    // Redraw without handles
+    drawCards(false);
+    
     const canvas = side === 'front' ? document.getElementById('cardFront') : document.getElementById('cardBack');
     const link = document.createElement('a');
     const title = side === 'front' ? document.getElementById('frontTitle').value : 'back';
@@ -1094,4 +1099,7 @@ function exportCard(side) {
     link.download = filename;
     link.href = canvas.toDataURL('image/png');
     link.click();
+    
+    // Restore handles
+    drawCards(true);
 }
