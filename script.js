@@ -8,17 +8,22 @@ let frontTitlePosition = { x: 50, y: 50 };
 let frontTextPosition = { x: 75, y: 640 };
 let frontNumberPosition = { x: 610, y: 50 };
 let backTextPosition = { x: 375, y: 450 };
+let titleStyle = { font: 'Arial', size: 48, color: '#000000' };
+let numberStyle = { font: 'Arial', size: 36, color: '#666666' };
 let isResizing = false;
 let resizeHandle = null;
 let isDraggingElement = null;
 let dragStartX = 0;
 let dragStartY = 0;
+let frontTextEditor = null;
+let backTextEditor = null;
 
 // Initialize
 document.addEventListener('DOMContentLoaded', function() {
     setupUploadArea();
     setupCanvasDropZones();
     setupControls();
+    initializeRichTextEditors();
     drawCards();
 });
 
@@ -366,45 +371,10 @@ function setupCanvasDropZones() {
             });
             return;
         }
-
-        // Bottom text area
-        if (x >= frontTextPosition.x && x <= frontTextPosition.x + 600 && 
-            y >= frontTextPosition.y && y <= frontTextPosition.y + 350) {
-            const container = frontCanvas.parentElement;
-            const left = frontTextPosition.x / scaleX;
-            const top = frontTextPosition.y / scaleY;
-            const width = 600 / scaleX;
-            const height = 200 / scaleY;
-            showCanvasEditor(container, left, top, width, height, document.getElementById('frontText').value, true, (val) => {
-                document.getElementById('frontText').value = val;
-                drawCards();
-            });
-            return;
-        }
     });
 
-    // Back canvas click-to-edit
+    // Back canvas click-to-edit (removed as text is now edited via Quill)
     const backCanvas_element = document.getElementById('cardBack');
-    backCanvas_element.addEventListener('click', (e) => {
-        const rect = backCanvas_element.getBoundingClientRect();
-        const scaleX = backCanvas_element.width / rect.width;
-        const scaleY = backCanvas_element.height / rect.height;
-        const x = (e.clientX - rect.left) * scaleX;
-        const y = (e.clientY - rect.top) * scaleY;
-
-        // center text block roughly at canvas center
-        const textWidth = 550;
-        const textY = backTextPosition.y;
-        const left = backTextPosition.x / scaleX;
-        const top = textY / scaleY;
-        const width = textWidth / scaleX;
-        const height = 220 / scaleY;
-        const container = backCanvas_element.parentElement;
-        showCanvasEditor(container, left, top, width, height, document.getElementById('backText').value, true, (val) => {
-            document.getElementById('backText').value = val;
-            drawCards();
-        });
-    });
 }
 
 // Generic inline editor for canvas text areas. container should be the .canvas-container
@@ -444,21 +414,72 @@ function showCanvasEditor(container, leftPx, topPx, widthPx, heightPx, initialVa
     });
 }
 
+// Initialize Rich Text Editors
+function initializeRichTextEditors() {
+    // Front text editor
+    frontTextEditor = new Quill('#frontText', {
+        theme: 'snow',
+        modules: {
+            toolbar: [
+                ['bold', 'italic', 'underline'],
+                [{ 'size': ['small', false, 'large', 'huge'] }],
+                [{ 'color': [] }],
+                [{ 'align': [] }]
+            ]
+        },
+        placeholder: 'Enter description...'
+    });
+
+    frontTextEditor.on('text-change', () => {
+        drawCards();
+    });
+
+    // Back text editor
+    backTextEditor = new Quill('#backText', {
+        theme: 'snow',
+        modules: {
+            toolbar: [
+                ['bold', 'italic', 'underline'],
+                [{ 'size': ['small', false, 'large', 'huge'] }],
+                [{ 'color': [] }],
+                [{ 'align': [] }]
+            ]
+        },
+        placeholder: 'Enter back text...'
+    });
+
+    backTextEditor.on('text-change', () => {
+        drawCards();
+    });
+}
+
 // Controls Setup
 function setupControls() {
     // Front card controls
     document.getElementById('frontTitle').addEventListener('input', drawCards);
     document.getElementById('cardNumber').addEventListener('input', drawCards);
-    document.getElementById('frontText').addEventListener('input', drawCards);
+    // frontText now handled by Quill editor
     document.getElementById('frontFont').addEventListener('change', drawCards);
     document.getElementById('frontFontSize').addEventListener('input', function() {
         document.getElementById('frontFontSizeValue').textContent = this.value + 'px';
         drawCards();
     });
     document.getElementById('frontColor').addEventListener('input', drawCards);
+    document.getElementById('titleFontFamily').addEventListener('change', (e) => { titleStyle.font = e.target.value; drawCards(); });
+    document.getElementById('titleFontSize').addEventListener('input', (e) => { titleStyle.size = parseInt(e.target.value) || titleStyle.size; drawCards(); });
+    document.getElementById('titleColor').addEventListener('input', (e) => { titleStyle.color = e.target.value; drawCards(); });
+    document.getElementById('numberFontFamily').addEventListener('change', (e) => { numberStyle.font = e.target.value; drawCards(); });
+    document.getElementById('numberFontSize').addEventListener('input', (e) => { numberStyle.size = parseInt(e.target.value) || numberStyle.size; drawCards(); });
+    document.getElementById('numberColor').addEventListener('input', (e) => { numberStyle.color = e.target.value; drawCards(); });
+
+    const styleToggle = document.getElementById('frontStyleToggle');
+    const stylePanel = document.getElementById('frontStylePanel');
+    styleToggle.addEventListener('click', () => {
+        stylePanel.classList.toggle('open');
+    });
 
     // Back card controls
-    document.getElementById('backText').addEventListener('input', drawCards);
+    // backText now handled by Quill editor
     document.getElementById('backFont').addEventListener('change', drawCards);
     document.getElementById('backFontSize').addEventListener('input', function() {
         document.getElementById('backFontSizeValue').textContent = this.value + 'px';
@@ -513,9 +534,9 @@ function drawCardFront() {
     
     // Title - transparent background (removed gray fill)
     const title = document.getElementById('frontTitle').value || 'Card Title';
-    const titleFont = document.getElementById('frontFont').value;
-    ctx.fillStyle = '#000000';
-    ctx.font = `bold 48px ${titleFont}`;
+    const titleFont = titleStyle.font;
+    ctx.fillStyle = titleStyle.color;
+    ctx.font = `bold ${titleStyle.size}px ${titleFont}`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText(title, frontTitlePosition.x + 325, frontTitlePosition.y + 60, canvas.width - 120);
@@ -523,8 +544,8 @@ function drawCardFront() {
     // Card Number
     const cardNum = document.getElementById('cardNumber').value || '1';
     const paddedNum = String(cardNum).padStart(3, '0');
-    ctx.font = `bold 36px ${titleFont}`;
-    ctx.fillStyle = '#666666';
+    ctx.font = `bold ${numberStyle.size}px ${numberStyle.font}`;
+    ctx.fillStyle = numberStyle.color;
     ctx.textAlign = 'right';
     ctx.fillText(`#${paddedNum}`, frontNumberPosition.x + 70, frontNumberPosition.y + 60);
     
@@ -568,21 +589,18 @@ function drawCardFront() {
     ctx.fillRect(photoX + photoWidth / 2 - 8, photoY + photoHeight - 10, 16, 10);
     
     // Bottom text area
-    const bottomText = document.getElementById('frontText').value || '';
-    const fontSize = document.getElementById('frontFontSize').value;
-    const fontFamily = document.getElementById('frontFont').value;
-    const fontColor = document.getElementById('frontColor').value;
-    
-    ctx.fillStyle = fontColor;
-    ctx.font = `${fontSize}px ${fontFamily}`;
-    ctx.textAlign = 'left';
+    if (!frontTextEditor) return;
     
     const textX = frontTextPosition.x;
     const textY = frontTextPosition.y;
     const textWidth = 600;
-    const lineHeight = parseInt(fontSize) * 1.4;
+    const baseFontSize = parseInt(document.getElementById('frontFontSize').value);
+    const baseFontFamily = document.getElementById('frontFont').value;
+    const baseColor = document.getElementById('frontColor').value;
     
-    wrapText(ctx, bottomText, textX, textY, textWidth, lineHeight);
+    // Get rich text content from Quill
+    const delta = frontTextEditor.getContents();
+    renderRichTextOnCanvas(ctx, delta, textX, textY, textWidth, baseFontSize, baseFontFamily, baseColor);
 }
 
 function drawCardBack() {
@@ -630,21 +648,18 @@ function drawCardBack() {
     }
 
     // Center text area
-    const backText = document.getElementById('backText').value || 'Card Back Text';
-    const fontSize = document.getElementById('backFontSize').value;
-    const fontFamily = document.getElementById('backFont').value;
-    const fontColor = document.getElementById('backColor').value;
-
-    ctx.fillStyle = fontColor;
-    ctx.font = `${fontSize}px ${fontFamily}`;
-
+    if (!backTextEditor) return;
+    
     const textX = canvas.width / 2; // center
     const textY = backTextPosition.y;
     const textWidth = 550;
-    const lineHeight = parseInt(fontSize) * 1.4;
+    const baseFontSize = parseInt(document.getElementById('backFontSize').value);
+    const baseFontFamily = document.getElementById('backFont').value;
+    const baseColor = document.getElementById('backColor').value;
 
-    // Use wrapText with center alignment
-    wrapText(ctx, backText, textX, textY, textWidth, lineHeight, 'center');
+    // Get rich text content from Quill
+    const delta = backTextEditor.getContents();
+    renderRichTextOnCanvas(ctx, delta, textX, textY, textWidth, baseFontSize, baseFontFamily, baseColor, 'center');
 }
 
 function wrapText(ctx, x, y, maxWidth, lineHeight) {
@@ -687,6 +702,118 @@ function wrapText(ctx, text, x, y, maxWidth, lineHeight, align) {
             ctx.fillText(line.trim(), x, currentY);
         }
     }
+}
+
+// Render rich text from Quill delta on canvas
+function renderRichTextOnCanvas(ctx, delta, startX, startY, maxWidth, baseFontSize, baseFontFamily, baseColor, defaultAlign = 'left') {
+    let currentY = startY;
+    let lineSegments = [];
+    let lineMaxFontSize = baseFontSize;
+    let lineAlign = defaultAlign;
+
+    function flushLine() {
+        if (lineSegments.length === 0) return;
+        const lineHeight = lineMaxFontSize * 1.4;
+        drawLineSegments(ctx, lineSegments, startX, currentY, maxWidth, lineAlign);
+        currentY += lineHeight;
+        lineSegments = [];
+        lineMaxFontSize = baseFontSize;
+        lineAlign = defaultAlign;
+    }
+
+    // Process each operation in the delta
+    delta.ops.forEach((op) => {
+        if (typeof op.insert === 'string') {
+            const text = op.insert;
+            const attributes = op.attributes || {};
+            const align = attributes.align || defaultAlign;
+
+            // Handle line breaks
+            const lines = text.split('\n');
+            lines.forEach((lineText, lineIndex) => {
+                if (lineText.length > 0) {
+                    // Set font properties
+                    const fontWeight = attributes.bold ? 'bold' : 'normal';
+                    const fontStyle = attributes.italic ? 'italic' : 'normal';
+                    let fontSize = baseFontSize;
+                    if (attributes.size === 'small') fontSize = baseFontSize * 0.75;
+                    else if (attributes.size === 'large') fontSize = baseFontSize * 1.5;
+                    else if (attributes.size === 'huge') fontSize = baseFontSize * 2;
+                    const color = attributes.color || baseColor;
+
+                    ctx.font = `${fontStyle} ${fontWeight} ${fontSize}px ${baseFontFamily}`;
+                    ctx.fillStyle = color;
+                    lineMaxFontSize = Math.max(lineMaxFontSize, fontSize);
+                    lineAlign = align || defaultAlign;
+
+                    // Split text into words for wrapping
+                    const words = lineText.split(' ');
+                    let currentX = startX + lineSegments.reduce((sum, seg) => sum + seg.width, 0);
+                    words.forEach((word, wordIndex) => {
+                        const wordText = word + (wordIndex < words.length - 1 ? ' ' : '');
+                        const wordWidth = ctx.measureText(wordText).width;
+
+                        // Check if we need to wrap
+                        if (currentX - startX + wordWidth > maxWidth && lineSegments.length > 0) {
+                            flushLine();
+                            currentX = startX;
+                        }
+
+                        // Add word to current line
+                        lineSegments.push({
+                            text: wordText,
+                            font: ctx.font,
+                            color: color,
+                            width: wordWidth,
+                            underline: attributes.underline
+                        });
+                        currentX += wordWidth;
+                    });
+                }
+
+                // Handle line break
+                if (lineIndex < lines.length - 1) {
+                    flushLine();
+                }
+            });
+        }
+    });
+
+    // Draw remaining segments
+    flushLine();
+}
+
+function drawLineSegments(ctx, segments, startX, y, maxWidth, align) {
+    // Calculate total width
+    const totalWidth = segments.reduce((sum, seg) => sum + seg.width, 0);
+
+    // Determine starting X based on alignment
+    let currentX = startX;
+    if (align === 'center') {
+        currentX = startX + (maxWidth - totalWidth) / 2;
+    } else if (align === 'right') {
+        currentX = startX + maxWidth - totalWidth;
+    }
+
+    // Draw each segment
+    segments.forEach(seg => {
+        ctx.font = seg.font;
+        ctx.fillStyle = seg.color;
+        ctx.fillText(seg.text, currentX, y);
+
+        // Draw underline if needed
+        if (seg.underline) {
+            const textMetrics = ctx.measureText(seg.text);
+            ctx.beginPath();
+            ctx.strokeStyle = seg.color;
+            ctx.lineWidth = 1;
+            ctx.moveTo(currentX, y + 2);
+            ctx.lineTo(currentX + textMetrics.width, y + 2);
+            ctx.stroke();
+        }
+
+        currentX += seg.width;
+    });
 }
 
 // Export Functions

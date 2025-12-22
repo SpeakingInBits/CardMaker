@@ -168,6 +168,48 @@ canvas {
     margin-bottom: 20px;
 }
 
+.settings-block {
+    border: 1px dashed #ddd;
+    border-radius: 8px;
+    padding: 12px;
+    background: #ffffff;
+}
+
+.settings-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
+    font-weight: bold;
+    color: #444;
+}
+
+.settings-btn {
+    width: 36px;
+    height: 36px;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    background: #f3f4f6;
+    cursor: pointer;
+    font-size: 16px;
+    transition: all 0.2s;
+}
+
+.settings-btn:hover {
+    background: #e8ebf5;
+    border-color: #667eea;
+}
+
+.settings-panel {
+    display: none;
+    gap: 10px;
+    flex-direction: column;
+}
+
+.settings-panel.open {
+    display: flex;
+}
+
 .controls h3 {
     margin-bottom: 15px;
     color: #444;
@@ -269,6 +311,15 @@ button:hover {
     box-shadow: 0 4px 12px rgba(0,0,0,0.15);
     background: white;
     resize: none;
+}
+
+/* Quill editor styling */
+.ql-container {
+    font-size: 14px;
+}
+
+.ql-editor {
+    min-height: 100px;
 }
 
 /* Responsive */
