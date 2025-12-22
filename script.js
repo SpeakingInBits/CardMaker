@@ -10,6 +10,10 @@ let frontNumberPosition = { x: 610, y: 50 };
 let backTextPosition = { x: 375, y: 450 };
 let titleStyle = { font: 'Arial', size: 48, color: '#000000' };
 let numberStyle = { font: 'Arial', size: 36, color: '#666666' };
+let photoTransform = { scale: 1, offsetXRatio: 0, offsetYRatio: 0 };
+let photoModalState = { scale: 1, offsetXRatio: 0, offsetYRatio: 0 };
+const STORAGE_KEY = 'cardMakerStateV1';
+let saveTimer = null;
 let isResizing = false;
 let resizeHandle = null;
 let isDraggingElement = null;
@@ -24,6 +28,7 @@ document.addEventListener('DOMContentLoaded', function() {
     setupCanvasDropZones();
     setupControls();
     initializeRichTextEditors();
+    loadState();
     drawCards();
 });
 
@@ -31,6 +36,9 @@ document.addEventListener('DOMContentLoaded', function() {
 function setupUploadArea() {
     const uploadArea = document.getElementById('uploadArea');
     const fileInput = document.getElementById('fileInput');
+
+    // Prevent browser from opening images when dropped outside
+    ['dragover','drop'].forEach(evt => document.addEventListener(evt, (e) => e.preventDefault()))
 
     uploadArea.addEventListener('click', () => fileInput.click());
     
@@ -64,12 +72,50 @@ function handleFiles(files) {
                     const id = Date.now() + Math.random();
                     uploadedPhotos.push({ id, data: e.target.result, img });
                     displayUploadedImages();
+                    scheduleSaveState();
                 };
                 img.src = e.target.result;
             };
             reader.readAsDataURL(file);
         }
     });
+}
+
+function saveState() {
+    if (typeof localStorage === 'undefined') return;
+    const state = {
+        photos: uploadedPhotos.map(p => ({ id: p.id, data: p.data })),
+        currentFrontImageId: currentFrontImage ? currentFrontImage.id : null,
+        currentFrontBackgroundId: currentFrontBackground ? currentFrontBackground.id : null,
+        currentBackBackgroundId: currentBackBackground ? currentBackBackground.id : null,
+        frontImagePosition,
+        frontTitlePosition,
+        frontNumberPosition,
+        frontTextPosition,
+        backTextPosition,
+        titleStyle,
+        numberStyle,
+        photoTransform,
+        frontControls: {
+            font: document.getElementById('frontFont').value,
+            fontSize: document.getElementById('frontFontSize').value,
+            color: document.getElementById('frontColor').value,
+        },
+        backControls: {
+            font: document.getElementById('backFont').value,
+            fontSize: document.getElementById('backFontSize').value,
+            color: document.getElementById('backColor').value,
+        },
+        frontTitle: document.getElementById('frontTitle').value,
+        cardNumber: document.getElementById('cardNumber').value,
+        frontTextDelta: frontTextEditor ? frontTextEditor.getContents() : null,
+        backTextDelta: backTextEditor ? backTextEditor.getContents() : null,
+    };
+    try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    } catch (err) {
+        console.warn('Could not save state', err);
+    }
 }
 
 function displayUploadedImages() {
@@ -108,6 +154,7 @@ function removePhoto(photoId) {
     }
     displayUploadedImages();
     drawCards();
+    scheduleSaveState();
 }
 
 // Canvas Drop Zones
@@ -131,7 +178,10 @@ function setupCanvasDropZones() {
         
         if (photo) {
             currentFrontImage = photo;
+            photoTransform = { scale: 1, offsetXRatio: 0, offsetYRatio: 0 };
+            openPhotoModal();
             drawCards();
+            scheduleSaveState();
         }
     });
 
@@ -156,6 +206,7 @@ function setupCanvasDropZones() {
         if (photo && e.target !== frontCanvas) {
             currentFrontBackground = photo;
             drawCards();
+            scheduleSaveState();
         }
     });
 
@@ -180,6 +231,7 @@ function setupCanvasDropZones() {
         if (photo) {
             currentBackBackground = photo;
             drawCards();
+            scheduleSaveState();
         }
     });
     
@@ -324,6 +376,7 @@ function setupCanvasDropZones() {
         resizeHandle = null;
         isDraggingElement = null;
         frontCanvas.style.cursor = 'default';
+        scheduleSaveState();
     });
 
     frontCanvas.addEventListener('mouseleave', () => {
@@ -331,6 +384,7 @@ function setupCanvasDropZones() {
         resizeHandle = null;
         isDraggingElement = null;
         frontCanvas.style.cursor = 'default';
+        scheduleSaveState();
     });
 
     // Double-click to edit elements
@@ -432,6 +486,7 @@ function initializeRichTextEditors() {
 
     frontTextEditor.on('text-change', () => {
         drawCards();
+        scheduleSaveState();
     });
 
     // Back text editor
@@ -450,7 +505,73 @@ function initializeRichTextEditors() {
 
     backTextEditor.on('text-change', () => {
         drawCards();
+        scheduleSaveState();
     });
+
+    const editPhotoBtn = document.getElementById('editPhotoBtn');
+    if (editPhotoBtn) {
+        editPhotoBtn.addEventListener('click', () => openPhotoModal());
+    }
+
+    const photoZoom = document.getElementById('photoZoom');
+    const photoModal = document.getElementById('photoModal');
+    const photoApply = document.getElementById('photoApply');
+    const photoCancel = document.getElementById('photoCancel');
+    const photoPreview = document.getElementById('photoPreview');
+    const photoPreviewImage = document.getElementById('photoPreviewImage');
+
+    if (photoZoom) {
+        photoZoom.addEventListener('input', () => {
+            photoModalState.scale = parseFloat(photoZoom.value) || 1;
+            updatePhotoPreview();
+        });
+    }
+
+    if (photoApply) {
+        photoApply.addEventListener('click', () => {
+            photoTransform = { ...photoModalState };
+            closePhotoModal();
+            drawCards();
+            scheduleSaveState();
+        });
+    }
+
+    if (photoCancel) {
+        photoCancel.addEventListener('click', () => {
+            closePhotoModal();
+        });
+    }
+
+    // Drag handling for preview
+    if (photoPreview) {
+        let dragging = false;
+        let startX = 0;
+        let startY = 0;
+        photoPreview.addEventListener('mousedown', (e) => {
+            dragging = true;
+            startX = e.clientX;
+            startY = e.clientY;
+            photoPreview.style.cursor = 'grabbing';
+        });
+        window.addEventListener('mouseup', () => {
+            dragging = false;
+            photoPreview.style.cursor = 'grab';
+        });
+        window.addEventListener('mousemove', (e) => {
+            if (!dragging) return;
+            const rect = photoPreview.getBoundingClientRect();
+            const dx = e.clientX - startX;
+            const dy = e.clientY - startY;
+            startX = e.clientX;
+            startY = e.clientY;
+            photoModalState.offsetXRatio += dx / rect.width;
+            photoModalState.offsetYRatio += dy / rect.height;
+            // Clamp to reasonable range
+            photoModalState.offsetXRatio = Math.max(-1.5, Math.min(1.5, photoModalState.offsetXRatio));
+            photoModalState.offsetYRatio = Math.max(-1.5, Math.min(1.5, photoModalState.offsetYRatio));
+            updatePhotoPreview();
+        });
+    }
 }
 
 // Controls Setup
@@ -463,14 +584,15 @@ function setupControls() {
     document.getElementById('frontFontSize').addEventListener('input', function() {
         document.getElementById('frontFontSizeValue').textContent = this.value + 'px';
         drawCards();
+        scheduleSaveState();
     });
-    document.getElementById('frontColor').addEventListener('input', drawCards);
+    document.getElementById('frontColor').addEventListener('input', () => { drawCards(); scheduleSaveState(); });
     document.getElementById('titleFontFamily').addEventListener('change', (e) => { titleStyle.font = e.target.value; drawCards(); });
-    document.getElementById('titleFontSize').addEventListener('input', (e) => { titleStyle.size = parseInt(e.target.value) || titleStyle.size; drawCards(); });
-    document.getElementById('titleColor').addEventListener('input', (e) => { titleStyle.color = e.target.value; drawCards(); });
-    document.getElementById('numberFontFamily').addEventListener('change', (e) => { numberStyle.font = e.target.value; drawCards(); });
-    document.getElementById('numberFontSize').addEventListener('input', (e) => { numberStyle.size = parseInt(e.target.value) || numberStyle.size; drawCards(); });
-    document.getElementById('numberColor').addEventListener('input', (e) => { numberStyle.color = e.target.value; drawCards(); });
+    document.getElementById('titleFontSize').addEventListener('input', (e) => { titleStyle.size = parseInt(e.target.value) || titleStyle.size; drawCards(); scheduleSaveState(); });
+    document.getElementById('titleColor').addEventListener('input', (e) => { titleStyle.color = e.target.value; drawCards(); scheduleSaveState(); });
+    document.getElementById('numberFontFamily').addEventListener('change', (e) => { numberStyle.font = e.target.value; drawCards(); scheduleSaveState(); });
+    document.getElementById('numberFontSize').addEventListener('input', (e) => { numberStyle.size = parseInt(e.target.value) || numberStyle.size; drawCards(); scheduleSaveState(); });
+    document.getElementById('numberColor').addEventListener('input', (e) => { numberStyle.color = e.target.value; drawCards(); scheduleSaveState(); });
 
     const styleToggle = document.getElementById('frontStyleToggle');
     const stylePanel = document.getElementById('frontStylePanel');
@@ -480,12 +602,13 @@ function setupControls() {
 
     // Back card controls
     // backText now handled by Quill editor
-    document.getElementById('backFont').addEventListener('change', drawCards);
+    document.getElementById('backFont').addEventListener('change', () => { drawCards(); scheduleSaveState(); });
     document.getElementById('backFontSize').addEventListener('input', function() {
         document.getElementById('backFontSizeValue').textContent = this.value + 'px';
         drawCards();
+        scheduleSaveState();
     });
-    document.getElementById('backColor').addEventListener('input', drawCards);
+    document.getElementById('backColor').addEventListener('input', () => { drawCards(); scheduleSaveState(); });
 }
 
 // Draw Cards
@@ -562,11 +685,14 @@ function drawCardFront() {
         ctx.clip();
         
         const img = currentFrontImage.img;
-        const scale = Math.max(photoWidth / img.width, photoHeight / img.height);
-        const scaledWidth = img.width * scale;
-        const scaledHeight = img.height * scale;
-        const x = photoX + (photoWidth - scaledWidth) / 2;
-        const y = photoY + (photoHeight - scaledHeight) / 2;
+        const baseScale = Math.max(photoWidth / img.width, photoHeight / img.height);
+        const totalScale = baseScale * photoTransform.scale;
+        const scaledWidth = img.width * totalScale;
+        const scaledHeight = img.height * totalScale;
+        const offsetX = photoTransform.offsetXRatio * photoWidth;
+        const offsetY = photoTransform.offsetYRatio * photoHeight;
+        const x = photoX + (photoWidth - scaledWidth) / 2 + offsetX;
+        const y = photoY + (photoHeight - scaledHeight) / 2 + offsetY;
         
         ctx.drawImage(img, x, y, scaledWidth, scaledHeight);
         ctx.restore();
@@ -814,6 +940,146 @@ function drawLineSegments(ctx, segments, startX, y, maxWidth, align) {
 
         currentX += seg.width;
     });
+}
+
+function scheduleSaveState() {
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(saveState, 300);
+}
+
+function loadState() {
+    if (typeof localStorage === 'undefined') return;
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return;
+    try {
+        const state = JSON.parse(raw);
+        // Restore photos
+        if (Array.isArray(state.photos)) {
+            uploadedPhotos = [];
+            const targetCount = state.photos.length;
+            let loadedCount = 0;
+            const pendingFrontId = state.currentFrontImageId;
+            const pendingFrontBgId = state.currentFrontBackgroundId;
+            const pendingBackBgId = state.currentBackBackgroundId;
+
+            state.photos.forEach(p => {
+                const img = new Image();
+                img.onload = () => {
+                    uploadedPhotos.push({ id: p.id, data: p.data, img });
+                    loadedCount += 1;
+
+                    if (pendingFrontId && p.id === pendingFrontId) currentFrontImage = { id: p.id, data: p.data, img };
+                    if (pendingFrontBgId && p.id === pendingFrontBgId) currentFrontBackground = { id: p.id, data: p.data, img };
+                    if (pendingBackBgId && p.id === pendingBackBgId) currentBackBackground = { id: p.id, data: p.data, img };
+
+                    if (loadedCount === targetCount) {
+                        displayUploadedImages();
+                        drawCards();
+                    }
+                };
+                img.src = p.data;
+            });
+        }
+
+        // Restore references
+        // (Handled during image load)
+
+        // Restore positions and styles
+        frontImagePosition = state.frontImagePosition || frontImagePosition;
+        frontTitlePosition = state.frontTitlePosition || frontTitlePosition;
+        frontNumberPosition = state.frontNumberPosition || frontNumberPosition;
+        frontTextPosition = state.frontTextPosition || frontTextPosition;
+        backTextPosition = state.backTextPosition || backTextPosition;
+        titleStyle = state.titleStyle || titleStyle;
+        numberStyle = state.numberStyle || numberStyle;
+        photoTransform = state.photoTransform || photoTransform;
+
+        // Restore controls
+        if (state.frontControls) {
+            document.getElementById('frontFont').value = state.frontControls.font || document.getElementById('frontFont').value;
+            document.getElementById('frontFontSize').value = state.frontControls.fontSize || document.getElementById('frontFontSize').value;
+            document.getElementById('frontFontSizeValue').textContent = `${document.getElementById('frontFontSize').value}px`;
+            document.getElementById('frontColor').value = state.frontControls.color || document.getElementById('frontColor').value;
+        }
+        if (state.backControls) {
+            document.getElementById('backFont').value = state.backControls.font || document.getElementById('backFont').value;
+            document.getElementById('backFontSize').value = state.backControls.fontSize || document.getElementById('backFontSize').value;
+            document.getElementById('backFontSizeValue').textContent = `${document.getElementById('backFontSize').value}px`;
+            document.getElementById('backColor').value = state.backControls.color || document.getElementById('backColor').value;
+        }
+
+        // Restore title/number fields
+        if (typeof state.frontTitle === 'string') {
+            document.getElementById('frontTitle').value = state.frontTitle;
+        }
+        if (typeof state.cardNumber === 'string' || typeof state.cardNumber === 'number') {
+            document.getElementById('cardNumber').value = state.cardNumber;
+        }
+
+        // Restore text editors
+        if (state.frontTextDelta && frontTextEditor) {
+            frontTextEditor.setContents(state.frontTextDelta);
+        }
+        if (state.backTextDelta && backTextEditor) {
+            backTextEditor.setContents(state.backTextDelta);
+        }
+
+        drawCards();
+    } catch (err) {
+        console.warn('Could not load saved state', err);
+    }
+}
+
+// Modal helpers
+function openPhotoModal() {
+    if (!currentFrontImage || !currentFrontImage.img) return;
+    const photoModal = document.getElementById('photoModal');
+    const photoZoom = document.getElementById('photoZoom');
+    const photoPreviewImage = document.getElementById('photoPreviewImage');
+
+    photoModalState = { ...photoTransform };
+    if (photoZoom) photoZoom.value = photoModalState.scale;
+    if (photoPreviewImage) {
+        photoPreviewImage.src = currentFrontImage.data;
+    }
+    updatePhotoPreview();
+    if (photoModal) {
+        photoModal.classList.add('open');
+        photoModal.setAttribute('aria-hidden', 'false');
+    }
+}
+
+function closePhotoModal() {
+    const photoModal = document.getElementById('photoModal');
+    if (photoModal) {
+        photoModal.classList.remove('open');
+        photoModal.setAttribute('aria-hidden', 'true');
+    }
+}
+
+function updatePhotoPreview() {
+    const photoPreview = document.getElementById('photoPreview');
+    const photoPreviewImage = document.getElementById('photoPreviewImage');
+    if (!photoPreview || !photoPreviewImage || !currentFrontImage || !currentFrontImage.img) return;
+
+    const rect = photoPreview.getBoundingClientRect();
+    const targetW = rect.width;
+    const targetH = rect.height;
+    const img = currentFrontImage.img;
+
+    const baseScale = Math.max(targetW / img.width, targetH / img.height);
+    const totalScale = baseScale * photoModalState.scale;
+    const scaledW = img.width * totalScale;
+    const scaledH = img.height * totalScale;
+    const offsetX = photoModalState.offsetXRatio * targetW;
+    const offsetY = photoModalState.offsetYRatio * targetH;
+    const x = (targetW - scaledW) / 2 + offsetX;
+    const y = (targetH - scaledH) / 2 + offsetY;
+
+    photoPreviewImage.style.width = `${scaledW}px`;
+    photoPreviewImage.style.height = `${scaledH}px`;
+    photoPreviewImage.style.left = `${x}px`;
+    photoPreviewImage.style.top = `${y}px`;
 }
 
 // Export Functions
