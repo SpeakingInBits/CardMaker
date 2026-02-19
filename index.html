@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Card Maker</title>
+    <link rel="icon" type="image/svg+xml" href="images/icon.svg">
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -53,6 +54,14 @@
                         <input type="file" id="bgFileInput" accept="image/*" style="display:none">
                     </div>
                     <button type="button" id="removeBgBtn" class="small-btn danger" style="display:none">✕ Remove Background</button>
+                    <div class="form-row" style="margin-top:6px">
+                        <label>Fit
+                            <select id="bgFitSelect">
+                                <option value="cover">Cover (crop)</option>
+                                <option value="stretch">Stretch</option>
+                            </select>
+                        </label>
+                    </div>
                 </section>
 
                 <section class="panel">

@@ -19,6 +19,7 @@ const state = {
         heightInches: 3.5,
         dpi: 300,
         backgroundImageData: null,
+        backgroundFit: 'cover',
     },
     components: [],   // { id, type:'text'|'image', ... }
     selectedId: null,
@@ -66,6 +67,12 @@ function wireUI() {
     const bgArea  = document.getElementById('bgUploadArea');
     const bgInput = document.getElementById('bgFileInput');
     bgArea.addEventListener('click', () => bgInput.click());
+    document.getElementById('bgFitSelect').addEventListener('change', e => {
+        state.card.backgroundFit = e.target.value;
+        drawCard();
+        scheduleAutoSave();
+    });
+
     bgArea.addEventListener('dragover', e => { e.preventDefault(); bgArea.classList.add('drag-over'); });
     bgArea.addEventListener('dragleave', () => bgArea.classList.remove('drag-over'));
     bgArea.addEventListener('drop', e => {
@@ -191,6 +198,7 @@ function addTextComponent() {
         borderWidth: 0,
         borderColor: '#000000',
         padding: 4,
+        height: null,
     };
     state.components.push(comp);
     state.selectedId = comp.id;
@@ -221,6 +229,7 @@ function onAddImageFile(e) {
                 _img: img,
                 borderWidth: 0,
                 borderColor: '#000000',
+                cornerRadius: 0,
             };
             state.components.push(comp);
             state.selectedId = comp.id;
@@ -270,7 +279,13 @@ function drawCard(showHandles = true) {
     ctx.fillRect(0, 0, w, h);
 
     // Background
-    if (bgImg) drawCover(ctx, bgImg, 0, 0, w, h);
+    if (bgImg) {
+        if (state.card.backgroundFit === 'stretch') {
+            ctx.drawImage(bgImg, 0, 0, w, h);
+        } else {
+            drawCover(ctx, bgImg, 0, 0, w, h);
+        }
+    }
 
     // Components in order (first = bottom)
     state.components.forEach(comp => {
@@ -379,18 +394,33 @@ function wrapLines(ctx, text, maxW) {
 }
 
 // ---------- Image component ----------
+function roundedRectPath(ctx, x, y, w, h, r) {
+    r = Math.min(r, w / 2, h / 2);
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + w, y,     x + w, y + h, r);
+    ctx.arcTo(x + w, y + h, x,     y + h, r);
+    ctx.arcTo(x,     y + h, x,     y,     r);
+    ctx.arcTo(x,     y,     x + w, y,     r);
+    ctx.closePath();
+}
+
 function drawImageComp(ctx, comp) {
     const x = inToPx(comp.x), y = inToPx(comp.y);
     const w = inToPx(comp.width), h = inToPx(comp.height);
+    const r = (comp.cornerRadius > 0) ? ptToCanvasPx(comp.cornerRadius) : 0;
 
     if (comp._img) {
         ctx.save();
-        ctx.beginPath(); ctx.rect(x, y, w, h); ctx.clip();
+        ctx.beginPath();
+        if (r > 0) { roundedRectPath(ctx, x, y, w, h, r); } else { ctx.rect(x, y, w, h); }
+        ctx.clip();
         drawCover(ctx, comp._img, x, y, w, h);
         ctx.restore();
     } else {
-        ctx.fillStyle = '#e0e0e0';
-        ctx.fillRect(x, y, w, h);
+        ctx.save();
+        ctx.beginPath();
+        if (r > 0) { roundedRectPath(ctx, x, y, w, h, r); ctx.fillStyle = '#e0e0e0'; ctx.fill(); } else { ctx.fillStyle = '#e0e0e0'; ctx.fillRect(x, y, w, h); }
+        ctx.restore();
         ctx.fillStyle = '#999';
         ctx.font = `${Math.max(14, Math.min(w, h) * 0.08)}px Arial`;
         ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
@@ -404,7 +434,13 @@ function drawImageComp(ctx, comp) {
         const bw = ptToCanvasPx(comp.borderWidth);
         ctx.strokeStyle = comp.borderColor;
         ctx.lineWidth = bw;
-        ctx.strokeRect(x + bw / 2, y + bw / 2, w - bw, h - bw);
+        if (r > 0) {
+            ctx.beginPath();
+            roundedRectPath(ctx, x + bw / 2, y + bw / 2, w - bw, h - bw, Math.max(0, r - bw / 2));
+            ctx.stroke();
+        } else {
+            ctx.strokeRect(x + bw / 2, y + bw / 2, w - bw, h - bw);
+        }
         ctx.restore();
     }
 }
@@ -434,8 +470,8 @@ function drawSelectionUI(ctx, comp) {
     }
     // Right-edge handle (text width OR image right)
     drawHandle(ctx, x + w - hs / 2, y + h / 2 - hs / 2, hs);
-    // Bottom-edge handle
-    if (comp.type === 'image') {
+    // Bottom-edge handle (images and text)
+    if (comp.type === 'image' || comp.type === 'text') {
         drawHandle(ctx, x + w / 2 - hs / 2, y + h - hs / 2, hs);
     }
 }
@@ -461,7 +497,7 @@ function compBounds(comp) {
         h = inToPx(comp.height);
     } else {
         w = inToPx(comp.width);
-        h = comp._cachedH || ptToCanvasPx(comp.fontSize) * 1.35;
+        h = (comp.height != null && comp.height > 0) ? inToPx(comp.height) : (comp._cachedH || ptToCanvasPx(comp.fontSize) * 1.35);
     }
     return { x, y, w, h };
 }
@@ -475,8 +511,9 @@ function hitHandle(comp, mx, my) {
         if (near(mx, my, x + w, y, tol))     return 'tr';
         if (near(mx, my, x, y + h, tol))     return 'bl';
         if (near(mx, my, x + w, y + h, tol)) return 'br';
-        if (near(mx, my, x + w / 2, y + h, tol)) return 'b';
     }
+    // Bottom handle for both image and text
+    if (near(mx, my, x + w / 2, y + h, tol)) return 'b';
     if (near(mx, my, x + w, y + h / 2, tol)) return 'r';
     return null;
 }
@@ -502,12 +539,17 @@ function onCanvasMouseDown(e) {
         if (sel) {
             const h = hitHandle(sel, x, y);
             if (h) {
+                const origH = sel.type === 'image'
+                    ? sel.height
+                    : (sel.height != null && sel.height > 0)
+                        ? sel.height
+                        : pxToIn(sel._cachedH || ptToCanvasPx(sel.fontSize) * 1.35);
                 interaction = {
                     type: 'resize', compId: sel.id, handle: h,
                     startX: x, startY: y,
                     origX: sel.x, origY: sel.y,
                     origW: sel.width,
-                    origH: sel.type === 'image' ? sel.height : 0,
+                    origH,
                 };
                 return;
             }
@@ -587,6 +629,9 @@ function onCanvasMouseMove(e) {
         } else {
             if (interaction.handle === 'r') {
                 comp.width = Math.max(0.25, interaction.origW + dxIn);
+            }
+            if (interaction.handle === 'b') {
+                comp.height = Math.max(0.1, interaction.origH + dyIn);
             }
         }
     }
@@ -770,6 +815,7 @@ function buildTextProps(panel, comp) {
             </div>
             <div class="prop-row">
                 <label>Width (in)<input type="number" id="propW" step="0.0625" min="0.25"></label>
+                <label>Height (in)<input type="number" id="propH" step="0.0625" min="0" placeholder="auto"></label>
             </div>
         </div>
         <div class="prop-section"><h4>Font</h4>
@@ -813,6 +859,7 @@ function buildTextProps(panel, comp) {
     document.getElementById('propX').value     = comp.x.toFixed(3);
     document.getElementById('propY').value     = comp.y.toFixed(3);
     document.getElementById('propW').value     = comp.width.toFixed(3);
+    document.getElementById('propH').value     = (comp.height != null && comp.height > 0) ? comp.height.toFixed(3) : '';
     document.getElementById('propSize').value  = comp.fontSize;
     document.getElementById('propColor').value = comp.color;
     document.getElementById('propBgColor').value   = comp.bgColor || '#ffffff';
@@ -826,6 +873,15 @@ function buildTextProps(panel, comp) {
     bindInput('propX',     comp, 'x',        'f');
     bindInput('propY',     comp, 'y',        'f');
     bindInput('propW',     comp, 'width',    'f');
+    // Height: 0 or empty = auto
+    const propHEl = document.getElementById('propH');
+    const hHandler = () => {
+        const val = parseFloat(propHEl.value);
+        comp.height = (!isNaN(val) && val > 0) ? val : null;
+        drawCard(); refreshComponentList(); scheduleAutoSave();
+    };
+    propHEl.addEventListener('input', hHandler);
+    propHEl.addEventListener('change', hHandler);
     bindInput('propFont',  comp, 'font',     'str');
     bindInput('propSize',  comp, 'fontSize', 'i');
     bindInput('propColor', comp, 'color',    'str');
@@ -865,6 +921,11 @@ function buildImageProps(panel, comp) {
                 <label>Color<input type="color" id="propBorderColor"></label>
             </div>
         </div>
+        <div class="prop-section"><h4>Corner Radius</h4>
+            <div class="prop-row">
+                <label>Radius (pt)<input type="number" id="propCornerRadius" min="0" max="500" step="1"></label>
+            </div>
+        </div>
         <div class="prop-section"><h4>Image</h4>
             <button type="button" class="small-btn" id="propChangeImg">Change Image</button>
             <input type="file" id="propImgInput" accept="image/*" style="display:none">
@@ -877,13 +938,15 @@ function buildImageProps(panel, comp) {
     document.getElementById('propH').value = comp.height.toFixed(3);
     document.getElementById('propBorderW').value     = comp.borderWidth || 0;
     document.getElementById('propBorderColor').value = comp.borderColor || '#000000';
+    document.getElementById('propCornerRadius').value = comp.cornerRadius || 0;
 
     bindInput('propX', comp, 'x',      'f');
     bindInput('propY', comp, 'y',      'f');
     bindInput('propW', comp, 'width',  'f');
     bindInput('propH', comp, 'height', 'f');
-    bindInput('propBorderW',     comp, 'borderWidth', 'f');
-    bindInput('propBorderColor', comp, 'borderColor', 'str');
+    bindInput('propBorderW',     comp, 'borderWidth',  'f');
+    bindInput('propBorderColor', comp, 'borderColor',  'str');
+    bindInput('propCornerRadius', comp, 'cornerRadius', 'f');
 
     document.getElementById('propChangeImg').addEventListener('click', () => document.getElementById('propImgInput').click());
     document.getElementById('propImgInput').addEventListener('change', e => {
@@ -1041,6 +1104,8 @@ function loadTemplateData(data) {
     document.getElementById('cardWidth').value  = state.card.widthInches;
     document.getElementById('cardHeight').value = state.card.heightInches;
     document.getElementById('cardDpi').value    = state.card.dpi;
+    const fitSel = document.getElementById('bgFitSelect');
+    if (fitSel) fitSel.value = state.card.backgroundFit || 'cover';
     updateDimReadout();
 
     loadAllImages().then(() => {
@@ -1204,6 +1269,8 @@ async function loadAutoSave() {
         document.getElementById('cardWidth').value  = state.card.widthInches;
         document.getElementById('cardHeight').value = state.card.heightInches;
         document.getElementById('cardDpi').value    = state.card.dpi;
+        const fitSelAS = document.getElementById('bgFitSelect');
+        if (fitSelAS) fitSelAS.value = state.card.backgroundFit || 'cover';
         updateDimReadout();
 
         loadAllImages().then(() => {

@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!-- Background circle -->
+  <circle cx="32" cy="32" r="32" fill="#16213e"/>
+
+  <!-- Back card (slightly rotated) -->
+  <rect x="18" y="14" width="26" height="36" rx="4" ry="4"
+        fill="#0f3460" stroke="#8ab4f8" stroke-width="1.5"
+        transform="rotate(-8 31 32)"/>
+
+  <!-- Front card -->
+  <rect x="20" y="13" width="26" height="36" rx="4" ry="4"
+        fill="#1a2742" stroke="#8ab4f8" stroke-width="1.5"/>
+
+  <!-- Card header bar -->
+  <rect x="20" y="13" width="26" height="10" rx="4" ry="4" fill="#e94560"/>
+  <!-- Square off the bottom corners of the header -->
+  <rect x="20" y="19" width="26" height="4" fill="#e94560"/>
+
+  <!-- Text lines on card -->
+  <rect x="25" y="28" width="16" height="2.5" rx="1.2" fill="#8ab4f8" opacity="0.9"/>
+  <rect x="25" y="33" width="12" height="2.5" rx="1.2" fill="#8ab4f8" opacity="0.6"/>
+  <rect x="25" y="38" width="14" height="2.5" rx="1.2" fill="#8ab4f8" opacity="0.4"/>
+
+  <!-- Star / sparkle on header -->
+  <text x="33" y="22" font-size="7" text-anchor="middle" fill="#fff" font-family="serif">✦</text>
+</svg>
