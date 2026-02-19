@@ -344,7 +344,8 @@ function drawTextComp(ctx, comp) {
     const textMaxW = maxW - padding * 2;
     const lines = wrapLines(ctx, comp.text, textMaxW);
     const textH = lines.length * lineH;
-    const totalH = textH + padding * 2;
+    const autoH = textH + padding * 2;
+    const totalH = (comp.height != null && comp.height > 0) ? inToPx(comp.height) : autoH;
     comp._cachedH = totalH;
 
     // Draw background if opacity > 0
