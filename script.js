@@ -3,8 +3,8 @@
 // =============================================
 
 // ===== Constants =====
-const TEMPLATES_KEY = 'cardMaker_templates_v2';
-const AUTOSAVE_KEY  = 'cardMaker_autosave_v2';
+const DB_NAME = 'CardMakerDB';
+const DB_VERSION = 1;
 const FONTS = [
     'Arial', 'Georgia', 'Times New Roman', 'Courier New',
     'Verdana', 'Comic Sans MS', 'Impact', 'Trebuchet MS',
@@ -186,6 +186,11 @@ function addTextComponent() {
         italic: false,
         underline: false,
         align: 'left',
+        bgColor: '#ffffff',
+        bgOpacity: 0,
+        borderWidth: 0,
+        borderColor: '#000000',
+        padding: 4,
     };
     state.components.push(comp);
     state.selectedId = comp.id;
@@ -214,6 +219,8 @@ function onAddImageFile(e) {
                 height: h,
                 imageData: ev.target.result,
                 _img: img,
+                borderWidth: 0,
+                borderColor: '#000000',
             };
             state.components.push(comp);
             state.selectedId = comp.id;
@@ -291,19 +298,42 @@ function drawTextComp(ctx, comp) {
     const maxW = inToPx(comp.width);
     const fontSize = ptToCanvasPx(comp.fontSize);
     const lineH = fontSize * 1.35;
+    const padding = ptToCanvasPx(comp.padding || 0);
 
-    ctx.font      = buildFont(comp, fontSize);
+    // Calculate text dimensions with padding
+    ctx.font = buildFont(comp, fontSize);
+    const textMaxW = maxW - padding * 2;
+    const lines = wrapLines(ctx, comp.text, textMaxW);
+    const textH = lines.length * lineH;
+    const totalH = textH + padding * 2;
+    comp._cachedH = totalH;
+
+    // Draw background if opacity > 0
+    if (comp.bgOpacity > 0) {
+        const rgb = hexToRgb(comp.bgColor);
+        ctx.fillStyle = `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${comp.bgOpacity})`;
+        ctx.fillRect(x, y, maxW, totalH);
+    }
+
+    // Draw border if width > 0
+    if (comp.borderWidth > 0) {
+        ctx.save();
+        const bw = ptToCanvasPx(comp.borderWidth);
+        ctx.strokeStyle = comp.borderColor;
+        ctx.lineWidth = bw;
+        ctx.strokeRect(x + bw / 2, y + bw / 2, maxW - bw, totalH - bw);
+        ctx.restore();
+    }
+
     ctx.fillStyle = comp.color;
     ctx.textBaseline = 'top';
 
-    const lines = wrapLines(ctx, comp.text, maxW);
-
     lines.forEach((line, i) => {
-        let lx = x;
+        let lx = x + padding;
         if (comp.align === 'center') lx = x + (maxW - ctx.measureText(line).width) / 2;
-        else if (comp.align === 'right') lx = x + maxW - ctx.measureText(line).width;
+        else if (comp.align === 'right') lx = x + maxW - padding - ctx.measureText(line).width;
 
-        ctx.fillText(line, lx, y + i * lineH);
+        ctx.fillText(line, lx, y + padding + i * lineH);
 
         if (comp.underline) {
             const tw = ctx.measureText(line).width;
@@ -311,14 +341,12 @@ function drawTextComp(ctx, comp) {
             ctx.strokeStyle = comp.color;
             ctx.lineWidth = Math.max(1, fontSize / 18);
             ctx.beginPath();
-            ctx.moveTo(lx, y + i * lineH + fontSize + 2);
-            ctx.lineTo(lx + tw, y + i * lineH + fontSize + 2);
+            ctx.moveTo(lx, y + padding + i * lineH + fontSize + 2);
+            ctx.lineTo(lx + tw, y + padding + i * lineH + fontSize + 2);
             ctx.stroke();
             ctx.restore();
         }
     });
-
-    comp._cachedH = lines.length * lineH;
 }
 
 function buildFont(comp, fontSize) {
@@ -368,6 +396,16 @@ function drawImageComp(ctx, comp) {
         ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
         ctx.fillText('Image', x + w / 2, y + h / 2);
         ctx.textAlign = 'left';
+    }
+
+    // Draw border if width > 0
+    if (comp.borderWidth > 0) {
+        ctx.save();
+        const bw = ptToCanvasPx(comp.borderWidth);
+        ctx.strokeStyle = comp.borderColor;
+        ctx.lineWidth = bw;
+        ctx.strokeRect(x + bw / 2, y + bw / 2, w - bw, h - bw);
+        ctx.restore();
     }
 }
 
@@ -741,6 +779,21 @@ function buildTextProps(panel, comp) {
                 <label>Color<input type="color" id="propColor"></label>
             </div>
         </div>
+        <div class="prop-section"><h4>Background</h4>
+            <div class="prop-row">
+                <label>Color<input type="color" id="propBgColor"></label>
+                <label>Opacity<input type="number" id="propBgOpacity" min="0" max="1" step="0.05"></label>
+            </div>
+        </div>
+        <div class="prop-section"><h4>Border</h4>
+            <div class="prop-row">
+                <label>Width (pt)<input type="number" id="propBorderW" min="0" max="50" step="0.5"></label>
+                <label>Color<input type="color" id="propBorderColor"></label>
+            </div>
+            <div class="prop-row">
+                <label>Padding (pt)<input type="number" id="propPadding" min="0" max="100" step="1"></label>
+            </div>
+        </div>
         <div class="prop-section"><h4>Style</h4>
             <div class="prop-toggle-row">
                 <button type="button" class="toggle-btn${comp.bold?' active':''}" id="tBold"><b>B</b></button>
@@ -762,6 +815,11 @@ function buildTextProps(panel, comp) {
     document.getElementById('propW').value     = comp.width.toFixed(3);
     document.getElementById('propSize').value  = comp.fontSize;
     document.getElementById('propColor').value = comp.color;
+    document.getElementById('propBgColor').value   = comp.bgColor || '#ffffff';
+    document.getElementById('propBgOpacity').value = comp.bgOpacity || 0;
+    document.getElementById('propBorderW').value     = comp.borderWidth || 0;
+    document.getElementById('propBorderColor').value = comp.borderColor || '#000000';
+    document.getElementById('propPadding').value     = comp.padding || 0;
 
     // Bind inputs
     bindInput('propText',  comp, 'text',     'str');
@@ -771,6 +829,11 @@ function buildTextProps(panel, comp) {
     bindInput('propFont',  comp, 'font',     'str');
     bindInput('propSize',  comp, 'fontSize', 'i');
     bindInput('propColor', comp, 'color',    'str');
+    bindInput('propBgColor',   comp, 'bgColor',   'str');
+    bindInput('propBgOpacity', comp, 'bgOpacity', 'f');
+    bindInput('propBorderW',     comp, 'borderWidth', 'f');
+    bindInput('propBorderColor', comp, 'borderColor', 'str');
+    bindInput('propPadding',     comp, 'padding', 'f');
 
     // Style toggles
     document.getElementById('tBold').addEventListener('click', () => { comp.bold = !comp.bold; afterComponentChange(); });
@@ -796,6 +859,12 @@ function buildImageProps(panel, comp) {
                 <label>Height (in)<input type="number" id="propH" step="0.0625" min="0.1"></label>
             </div>
         </div>
+        <div class="prop-section"><h4>Border</h4>
+            <div class="prop-row">
+                <label>Width (pt)<input type="number" id="propBorderW" min="0" max="50" step="0.5"></label>
+                <label>Color<input type="color" id="propBorderColor"></label>
+            </div>
+        </div>
         <div class="prop-section"><h4>Image</h4>
             <button type="button" class="small-btn" id="propChangeImg">Change Image</button>
             <input type="file" id="propImgInput" accept="image/*" style="display:none">
@@ -806,11 +875,15 @@ function buildImageProps(panel, comp) {
     document.getElementById('propY').value = comp.y.toFixed(3);
     document.getElementById('propW').value = comp.width.toFixed(3);
     document.getElementById('propH').value = comp.height.toFixed(3);
+    document.getElementById('propBorderW').value     = comp.borderWidth || 0;
+    document.getElementById('propBorderColor').value = comp.borderColor || '#000000';
 
     bindInput('propX', comp, 'x',      'f');
     bindInput('propY', comp, 'y',      'f');
     bindInput('propW', comp, 'width',  'f');
     bindInput('propH', comp, 'height', 'f');
+    bindInput('propBorderW',     comp, 'borderWidth', 'f');
+    bindInput('propBorderColor', comp, 'borderColor', 'str');
 
     document.getElementById('propChangeImg').addEventListener('click', () => document.getElementById('propImgInput').click());
     document.getElementById('propImgInput').addEventListener('change', e => {
@@ -848,6 +921,69 @@ function esc(s) {
 }
 
 // ===========================
+//  IndexedDB helpers
+// ===========================
+let dbInstance = null;
+
+function openDB() {
+    return new Promise((resolve, reject) => {
+        if (dbInstance) { resolve(dbInstance); return; }
+        const req = indexedDB.open(DB_NAME, DB_VERSION);
+        req.onerror = () => reject(req.error);
+        req.onsuccess = () => { dbInstance = req.result; resolve(dbInstance); };
+        req.onupgradeneeded = (e) => {
+            const db = e.target.result;
+            if (!db.objectStoreNames.contains('templates')) {
+                db.createObjectStore('templates', { keyPath: 'name' });
+            }
+            if (!db.objectStoreNames.contains('autosave')) {
+                db.createObjectStore('autosave', { keyPath: 'id' });
+            }
+        };
+    });
+}
+
+async function dbGet(storeName, key) {
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+        const tx = db.transaction(storeName, 'readonly');
+        const req = tx.objectStore(storeName).get(key);
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => reject(req.error);
+    });
+}
+
+async function dbPut(storeName, value) {
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+        const tx = db.transaction(storeName, 'readwrite');
+        const req = tx.objectStore(storeName).put(value);
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => reject(req.error);
+    });
+}
+
+async function dbGetAll(storeName) {
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+        const tx = db.transaction(storeName, 'readonly');
+        const req = tx.objectStore(storeName).getAll();
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => reject(req.error);
+    });
+}
+
+async function dbDelete(storeName, key) {
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+        const tx = db.transaction(storeName, 'readwrite');
+        const req = tx.objectStore(storeName).delete(key);
+        req.onsuccess = () => resolve();
+        req.onerror = () => reject(req.error);
+    });
+}
+
+// ===========================
 //  Template save / load
 // ===========================
 function openModal(mode) {
@@ -863,8 +999,7 @@ function closeModal() {
     document.getElementById('templateModal').classList.remove('open');
 }
 
-function getSaved()  { try { return JSON.parse(localStorage.getItem(TEMPLATES_KEY) || '[]'); } catch { return []; } }
-function putSaved(a) { localStorage.setItem(TEMPLATES_KEY, JSON.stringify(a)); }
+
 
 function serializeTemplate() {
     return {
@@ -880,18 +1015,20 @@ function serializeTemplate() {
     };
 }
 
-function onSaveTemplate() {
+async function onSaveTemplate() {
     const name = document.getElementById('templateNameInput').value.trim() || 'Untitled';
     state.card.name = name;
 
-    const list = getSaved();
-    const idx  = list.findIndex(t => t.name === name);
     const entry = { name, savedAt: new Date().toISOString(), data: serializeTemplate() };
-
-    if (idx >= 0) list[idx] = entry; else list.push(entry);
-    putSaved(list);
-    renderSavedList();
-    closeModal();
+    
+    try {
+        await dbPut('templates', entry);
+        await renderSavedList();
+        closeModal();
+    } catch (err) {
+        console.error('Failed to save template:', err);
+        alert('Failed to save template. Please try again.');
+    }
 }
 
 function loadTemplateData(data) {
@@ -913,14 +1050,24 @@ function loadTemplateData(data) {
     closeModal();
 }
 
-function deleteSavedTemplate(name) {
-    putSaved(getSaved().filter(t => t.name !== name));
-    renderSavedList();
+async function deleteSavedTemplate(name) {
+    try {
+        await dbDelete('templates', name);
+        await renderSavedList();
+    } catch (err) {
+        console.error('Failed to delete template:', err);
+    }
 }
 
-function renderSavedList() {
+async function renderSavedList() {
     const container  = document.getElementById('savedTemplatesList');
-    const templates  = getSaved();
+    let templates = [];
+    
+    try {
+        templates = await dbGetAll('templates');
+    } catch (err) {
+        console.error('Failed to load templates:', err);
+    }
 
     if (!templates.length) { container.innerHTML = '<p class="hint">No saved templates</p>'; return; }
 
@@ -939,7 +1086,7 @@ function renderSavedList() {
         });
     });
     container.querySelectorAll('.del-btn').forEach(btn => {
-        btn.addEventListener('click', () => deleteSavedTemplate(btn.dataset.name));
+        btn.addEventListener('click', async () => await deleteSavedTemplate(btn.dataset.name));
     });
 }
 
@@ -1035,19 +1182,19 @@ function scheduleAutoSave() {
     autoSaveTimer = setTimeout(autoSave, 400);
 }
 
-function autoSave() {
+async function autoSave() {
     try {
-        localStorage.setItem(AUTOSAVE_KEY, JSON.stringify(serializeTemplate()));
+        await dbPut('autosave', { id: 'current', data: serializeTemplate() });
     } catch (err) {
         console.warn('Auto-save failed:', err);
     }
 }
 
-function loadAutoSave() {
+async function loadAutoSave() {
     try {
-        const raw = localStorage.getItem(AUTOSAVE_KEY);
-        if (!raw) return;
-        const data = JSON.parse(raw);
+        const record = await dbGet('autosave', 'current');
+        if (!record || !record.data) return;
+        const data = record.data;
         if (!data.card || !Array.isArray(data.components)) return;
 
         state.card       = { ...data.card };
@@ -1067,4 +1214,14 @@ function loadAutoSave() {
     } catch (err) {
         console.warn('Auto-save load failed:', err);
     }
+}
+
+// Helper: convert hex to RGB
+function hexToRgb(hex) {
+    const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+    return result ? {
+        r: parseInt(result[1], 16),
+        g: parseInt(result[2], 16),
+        b: parseInt(result[3], 16)
+    } : { r: 255, g: 255, b: 255 };
 }
