@@ -3,193 +3,114 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Trading Card Maker</title>
-    <link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
+    <title>Card Maker</title>
+    <link rel="icon" type="image/svg+xml" href="images/icon.svg">
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-    <div class="container">
-        <h1>🎴 Trading Card Maker</h1>
-        
+    <div class="app">
+        <header class="toolbar">
+            <h1>🎴 Card Maker</h1>
+            <div class="toolbar-actions">
+                <button type="button" id="addTextBtn" class="tool-btn">+ Text</button>
+                <button type="button" id="addImageBtn" class="tool-btn">+ Image</button>
+                <input type="file" id="addImageInput" accept="image/*" style="display:none">
+                <span class="toolbar-sep"></span>
+                <button type="button" id="saveTemplateBtn" class="tool-btn">💾 Save</button>
+                <button type="button" id="loadTemplateBtn" class="tool-btn">📂 Load</button>
+                <button type="button" id="exportTemplateBtn" class="tool-btn">📤 Export Template</button>
+                <button type="button" id="importTemplateBtn" class="tool-btn">📥 Import Template</button>
+                <input type="file" id="importTemplateInput" accept=".json" style="display:none">
+                <span class="toolbar-sep"></span>
+                <button type="button" id="exportPngBtn" class="tool-btn accent">🖼️ Export PNG</button>
+            </div>
+        </header>
+
         <div class="main-layout">
-            <!-- Upload Section -->
-            <div class="upload-section">
-                <h2>📸 Upload Photos</h2>
-                <div class="upload-area" id="uploadArea">
-                    <div class="upload-icon">⬆️</div>
-                    <p>Drag & Drop photos here<br>or click to browse</p>
-                    <input type="file" id="fileInput" accept="image/*" multiple style="display: none;">
-                </div>
-                <div class="uploaded-images" id="uploadedImages"></div>
-            </div>
+            <!-- Left Sidebar -->
+            <aside class="sidebar left-sidebar">
+                <section class="panel">
+                    <h3>📐 Card Size</h3>
+                    <div class="form-row">
+                        <label>Width (in)
+                            <input type="number" id="cardWidth" value="2.5" min="0.5" max="20" step="0.125">
+                        </label>
+                        <label>Height (in)
+                            <input type="number" id="cardHeight" value="3.5" min="0.5" max="20" step="0.125">
+                        </label>
+                    </div>
+                    <div class="form-row">
+                        <label>DPI
+                            <input type="number" id="cardDpi" value="300" min="72" max="1200" step="1">
+                        </label>
+                        <label class="dim-readout" id="dimReadout">750 × 1050 px</label>
+                    </div>
+                </section>
 
-            <!-- Templates Section -->
-            <div class="templates-section">
-                <!-- Card Front -->
-                <div class="card-template">
-                    <h2>Card Front</h2>
-                    <div class="canvas-container">
-                        <canvas id="cardFront" width="750" height="1050"></canvas>
+                <section class="panel">
+                    <h3>🖼️ Background</h3>
+                    <div class="bg-upload-area" id="bgUploadArea">
+                        <span id="bgUploadLabel">Click or drop image</span>
+                        <input type="file" id="bgFileInput" accept="image/*" style="display:none">
                     </div>
-                    
-                    <div class="controls">
-                        <div class="control-group">
-                            <label>Card Title:</label>
-                            <input type="text" id="frontTitle" placeholder="Enter title..." maxlength="30">
-                        </div>
-                        <div class="control-group">
-                            <label>Card Number (3 digits):</label>
-                            <input type="number" id="cardNumber" placeholder="001" min="0" max="999" value="1">
-                        </div>
-                        <div class="control-group settings-block">
-                            <div class="settings-row">
-                                <span>Title & Number Style</span>
-                                <button type="button" class="settings-btn" id="frontStyleToggle">⚙</button>
-                            </div>
-                            <div class="settings-panel" id="frontStylePanel">
-                                <div class="control-group">
-                                    <label>Title Font:</label>
-                                    <select id="titleFontFamily">
-                                        <option value="Arial">Arial</option>
-                                        <option value="Georgia">Georgia</option>
-                                        <option value="Times New Roman">Times New Roman</option>
-                                        <option value="Courier New">Courier New</option>
-                                        <option value="Verdana">Verdana</option>
-                                        <option value="Comic Sans MS">Comic Sans MS</option>
-                                        <option value="Impact">Impact</option>
-                                    </select>
-                                </div>
-                                <div class="color-size-row">
-                                    <div class="control-group">
-                                        <label>Title Size:</label>
-                                        <input type="number" id="titleFontSize" min="18" max="96" value="48">
-                                    </div>
-                                    <div class="control-group">
-                                        <label>Title Color:</label>
-                                        <input type="color" id="titleColor" value="#000000">
-                                    </div>
-                                </div>
-                                <div class="control-group">
-                                    <label>Number Font:</label>
-                                    <select id="numberFontFamily">
-                                        <option value="Arial">Arial</option>
-                                        <option value="Georgia">Georgia</option>
-                                        <option value="Times New Roman">Times New Roman</option>
-                                        <option value="Courier New">Courier New</option>
-                                        <option value="Verdana">Verdana</option>
-                                        <option value="Comic Sans MS">Comic Sans MS</option>
-                                        <option value="Impact">Impact</option>
-                                    </select>
-                                </div>
-                                <div class="color-size-row">
-                                    <div class="control-group">
-                                        <label>Number Size:</label>
-                                        <input type="number" id="numberFontSize" min="12" max="72" value="36">
-                                    </div>
-                                    <div class="control-group">
-                                        <label>Number Color:</label>
-                                        <input type="color" id="numberColor" value="#666666">
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="control-group">
-                            <label>Bottom Text:</label>
-                            <div id="frontText" style="height: 150px; background: white;"></div>
-                        </div>
-                        <div class="control-group">
-                            <button type="button" id="editPhotoBtn">🖼️ Edit Photo Position & Zoom</button>
-                        </div>
-                        <div class="control-group">
-                            <label>Font Family:</label>
-                            <select id="frontFont">
-                                <option value="Arial">Arial</option>
-                                <option value="Georgia">Georgia</option>
-                                <option value="Times New Roman">Times New Roman</option>
-                                <option value="Courier New">Courier New</option>
-                                <option value="Verdana">Verdana</option>
-                                <option value="Comic Sans MS">Comic Sans MS</option>
-                                <option value="Impact">Impact</option>
+                    <button type="button" id="removeBgBtn" class="small-btn danger" style="display:none">✕ Remove Background</button>
+                    <div class="form-row" style="margin-top:6px">
+                        <label>Fit
+                            <select id="bgFitSelect">
+                                <option value="cover">Cover (crop)</option>
+                                <option value="stretch">Stretch</option>
                             </select>
-                        </div>
-                        <div class="color-size-row">
-                            <div class="control-group">
-                                <label>Font Size:</label>
-                                <input type="range" id="frontFontSize" min="12" max="48" value="20">
-                                <span id="frontFontSizeValue">20px</span>
-                            </div>
-                            <div class="control-group">
-                                <label>Font Color:</label>
-                                <input type="color" id="frontColor" value="#000000">
-                            </div>
-                        </div>
+                        </label>
                     </div>
-                    
-                    <button class="export-btn" onclick="exportCard('front')">💾 Export Front as PNG</button>
-                </div>
+                </section>
 
-                <!-- Card Back -->
-                <div class="card-template">
-                    <h2>Card Back</h2>
-                    <div class="canvas-container">
-                        <canvas id="cardBack" width="750" height="1050"></canvas>
-                    </div>
-                    
-                    <div class="controls">
-                        <div class="control-group">
-                            <label>Back Text:</label>
-                            <div id="backText" style="height: 200px; background: white;"></div>
-                        </div>
-                        <div class="control-group">
-                            <label>Font Family:</label>
-                            <select id="backFont">
-                                <option value="Arial">Arial</option>
-                                <option value="Georgia">Georgia</option>
-                                <option value="Times New Roman">Times New Roman</option>
-                                <option value="Courier New">Courier New</option>
-                                <option value="Verdana">Verdana</option>
-                                <option value="Comic Sans MS">Comic Sans MS</option>
-                                <option value="Impact">Impact</option>
-                            </select>
-                        </div>
-                        <div class="color-size-row">
-                            <div class="control-group">
-                                <label>Font Size:</label>
-                                <input type="range" id="backFontSize" min="12" max="48" value="24">
-                                <span id="backFontSizeValue">24px</span>
-                            </div>
-                            <div class="control-group">
-                                <label>Font Color:</label>
-                                <input type="color" id="backColor" value="#000000">
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <button class="export-btn" onclick="exportCard('back')">💾 Export Back as PNG</button>
+                <section class="panel">
+                    <h3>📋 Components</h3>
+                    <div id="componentList" class="component-list"></div>
+                    <p class="hint" id="compListHint">Add text or images using the toolbar</p>
+                </section>
+            </aside>
+
+            <!-- Canvas Area -->
+            <main class="canvas-area">
+                <div class="canvas-scroller" id="canvasScroller">
+                    <canvas id="cardCanvas"></canvas>
                 </div>
-            </div>
+            </main>
+
+            <!-- Right Sidebar -->
+            <aside class="sidebar right-sidebar">
+                <section class="panel">
+                    <h3>⚙️ Properties</h3>
+                    <div id="propertiesPanel">
+                        <p class="hint">Select a component to edit</p>
+                    </div>
+                </section>
+            </aside>
         </div>
     </div>
 
-    <script src="https://cdn.quilljs.com/1.3.6/quill.js"></script>
-    <div class="modal-overlay" id="photoModal" aria-hidden="true">
+    <!-- Template Save/Load Modal -->
+    <div class="modal-overlay" id="templateModal">
         <div class="modal">
-            <h3>Edit Photo Position & Zoom</h3>
-            <div class="modal-preview" id="photoPreview">
-                <img id="photoPreviewImage" alt="Preview">
+            <div class="modal-header">
+                <h3 id="modalTitle">Save Template</h3>
+                <button type="button" class="modal-close" id="modalClose">✕</button>
             </div>
-            <div class="modal-controls">
-                <label>Zoom
-                    <input type="range" id="photoZoom" min="0.5" max="3" step="0.05" value="1">
-                </label>
-                <div class="modal-buttons">
-                    <button type="button" id="photoCancel">Cancel</button>
-                    <button type="button" id="photoApply">Apply</button>
+            <div id="modalSaveSection">
+                <div class="form-group">
+                    <label>Template Name</label>
+                    <input type="text" id="templateNameInput" placeholder="My Card Template">
                 </div>
+                <button type="button" id="modalSaveBtn" class="primary-btn">Save Template</button>
             </div>
-            <p class="hint">Drag the image to reposition. Zoom slider adjusts scale.</p>
+            <div id="savedTemplatesSection">
+                <h4>Saved Templates</h4>
+                <div id="savedTemplatesList" class="template-list"></div>
+            </div>
         </div>
     </div>
+
     <script src="script.js"></script>
 </body>
 </html>
