@@ -110,6 +110,7 @@ function wireUI() {
     canvas.addEventListener('dblclick', onCanvasDblClick);
     canvas.addEventListener('dragover', e => e.preventDefault());
     canvas.addEventListener('drop', e => e.preventDefault());
+    canvas.addEventListener('wheel', onCanvasWheel, { passive: false });
 
     // Keyboard
     document.addEventListener('keydown', onKeyDown);
@@ -230,6 +231,9 @@ function onAddImageFile(e) {
                 borderWidth: 0,
                 borderColor: '#000000',
                 cornerRadius: 0,
+                imageOffsetX: 0,
+                imageOffsetY: 0,
+                imageScale: 1,
             };
             state.components.push(comp);
             state.selectedId = comp.id;
@@ -301,9 +305,17 @@ function drawCard(showHandles = true) {
 }
 
 function drawCover(ctx, img, dx, dy, dw, dh) {
-    const s = Math.max(dw / img.width, dh / img.height);
+    drawCoverOffset(ctx, img, dx, dy, dw, dh, 0, 0);
+}
+
+function drawCoverOffset(ctx, img, dx, dy, dw, dh, ox, oy, zoom) {
+    const s = Math.max(dw / img.width, dh / img.height) * (zoom || 1);
     const sw = img.width * s, sh = img.height * s;
-    ctx.drawImage(img, dx + (dw - sw) / 2, dy + (dh - sh) / 2, sw, sh);
+    const maxOx = Math.max(0, (sw - dw) / 2);
+    const maxOy = Math.max(0, (sh - dh) / 2);
+    const cx = Math.max(-maxOx, Math.min(maxOx, ox));
+    const cy = Math.max(-maxOy, Math.min(maxOy, oy));
+    ctx.drawImage(img, dx + (dw - sw) / 2 + cx, dy + (dh - sh) / 2 + cy, sw, sh);
 }
 
 // ---------- Text component ----------
@@ -408,13 +420,16 @@ function drawImageComp(ctx, comp) {
     const x = inToPx(comp.x), y = inToPx(comp.y);
     const w = inToPx(comp.width), h = inToPx(comp.height);
     const r = (comp.cornerRadius > 0) ? ptToCanvasPx(comp.cornerRadius) : 0;
+    const ox = comp.imageOffsetX || 0;
+    const oy = comp.imageOffsetY || 0;
+    const zoom = comp.imageScale || 1;
 
     if (comp._img) {
         ctx.save();
         ctx.beginPath();
         if (r > 0) { roundedRectPath(ctx, x, y, w, h, r); } else { ctx.rect(x, y, w, h); }
         ctx.clip();
-        drawCover(ctx, comp._img, x, y, w, h);
+        drawCoverOffset(ctx, comp._img, x, y, w, h, ox, oy, zoom);
         ctx.restore();
     } else {
         ctx.save();
@@ -533,10 +548,21 @@ function hitBody(comp, mx, my) {
 function onCanvasMouseDown(e) {
     const { x, y } = mouseToCanvas(e);
 
-    // 1) Check selected component's handles
+    // 1) Check selected component's handles / pan
     if (state.selectedId != null) {
         const sel = getComp(state.selectedId);
         if (sel) {
+            // Alt+drag on a selected image → pan the image content
+            if (e.altKey && sel.type === 'image' && hitBody(sel, x, y)) {
+                interaction = {
+                    type: 'pan', compId: sel.id,
+                    startX: x, startY: y,
+                    origOx: sel.imageOffsetX || 0,
+                    origOy: sel.imageOffsetY || 0,
+                };
+                document.getElementById('cardCanvas').style.cursor = 'grabbing';
+                return;
+            }
             const h = hitHandle(sel, x, y);
             if (h) {
                 const origH = sel.type === 'image'
@@ -587,6 +613,17 @@ function onCanvasMouseMove(e) {
     const { x, y } = mouseToCanvas(e);
     const comp = getComp(interaction.compId);
     if (!comp) return;
+
+    if (interaction.type === 'pan') {
+        comp.imageOffsetX = interaction.origOx + (x - interaction.startX);
+        comp.imageOffsetY = interaction.origOy + (y - interaction.startY);
+        const pxEl = document.getElementById('propPanX');
+        const pyEl = document.getElementById('propPanY');
+        if (pxEl) pxEl.value = Math.round(comp.imageOffsetX);
+        if (pyEl) pyEl.value = Math.round(comp.imageOffsetY);
+        drawCard();
+        return;
+    }
 
     if (interaction.type === 'drag') {
         comp.x = interaction.origX + pxToIn(x - interaction.startX);
@@ -646,6 +683,22 @@ function onCanvasMouseUp() {
     }
 }
 
+function onCanvasWheel(e) {
+    if (state.selectedId == null) return;
+    const sel = getComp(state.selectedId);
+    if (!sel || sel.type !== 'image') return;
+    const { x, y } = mouseToCanvas(e);
+    if (!hitBody(sel, x, y)) return;
+    e.preventDefault();
+    const step = e.ctrlKey ? 0.01 : 0.05;
+    const delta = e.deltaY < 0 ? step : -step;
+    sel.imageScale = Math.max(0.1, Math.min(10, (sel.imageScale || 1) + delta));
+    const zoomEl = document.getElementById('propZoom');
+    if (zoomEl) zoomEl.value = Math.round(sel.imageScale * 100);
+    drawCard();
+    scheduleAutoSave();
+}
+
 function updateCursor(e) {
     const canvas = document.getElementById('cardCanvas');
     try { var { x, y } = mouseToCanvas(e); } catch { canvas.style.cursor = 'default'; return; }
@@ -657,6 +710,10 @@ function updateCursor(e) {
             if (h) {
                 const map = { tl:'nwse-resize', br:'nwse-resize', tr:'nesw-resize', bl:'nesw-resize', r:'ew-resize', b:'ns-resize' };
                 canvas.style.cursor = map[h] || 'pointer';
+                return;
+            }
+            if (e.altKey && sel.type === 'image' && hitBody(sel, x, y)) {
+                canvas.style.cursor = 'grab';
                 return;
             }
         }
@@ -926,6 +983,19 @@ function buildImageProps(panel, comp) {
                 <label>Radius (pt)<input type="number" id="propCornerRadius" min="0" max="500" step="1"></label>
             </div>
         </div>
+        <div class="prop-section"><h4>Image Pan <span style="font-weight:normal;color:#666;font-size:10px">(Alt+drag on canvas)</span></h4>
+            <div class="prop-row">
+                <label>Pan X (px)<input type="number" id="propPanX" step="1"></label>
+                <label>Pan Y (px)<input type="number" id="propPanY" step="1"></label>
+            </div>
+            <button type="button" class="small-btn" id="propResetPan">Reset Pan</button>
+        </div>
+        <div class="prop-section"><h4>Zoom <span style="font-weight:normal;color:#666;font-size:10px">(Scroll wheel on canvas)</span></h4>
+            <div class="prop-row">
+                <label>Scale (%)<input type="number" id="propZoom" min="10" max="1000" step="5"></label>
+            </div>
+            <button type="button" class="small-btn" id="propResetZoom">Reset Zoom</button>
+        </div>
         <div class="prop-section"><h4>Image</h4>
             <button type="button" class="small-btn" id="propChangeImg">Change Image</button>
             <input type="file" id="propImgInput" accept="image/*" style="display:none">
@@ -939,6 +1009,9 @@ function buildImageProps(panel, comp) {
     document.getElementById('propBorderW').value     = comp.borderWidth || 0;
     document.getElementById('propBorderColor').value = comp.borderColor || '#000000';
     document.getElementById('propCornerRadius').value = comp.cornerRadius || 0;
+    document.getElementById('propPanX').value = Math.round(comp.imageOffsetX || 0);
+    document.getElementById('propPanY').value = Math.round(comp.imageOffsetY || 0);
+    document.getElementById('propZoom').value  = Math.round((comp.imageScale || 1) * 100);
 
     bindInput('propX', comp, 'x',      'f');
     bindInput('propY', comp, 'y',      'f');
@@ -947,6 +1020,29 @@ function buildImageProps(panel, comp) {
     bindInput('propBorderW',     comp, 'borderWidth',  'f');
     bindInput('propBorderColor', comp, 'borderColor',  'str');
     bindInput('propCornerRadius', comp, 'cornerRadius', 'f');
+    bindInput('propPanX', comp, 'imageOffsetX', 'f');
+    bindInput('propPanY', comp, 'imageOffsetY', 'f');
+
+    const zoomEl = document.getElementById('propZoom');
+    const zoomHandler = () => {
+        comp.imageScale = Math.max(0.1, (parseFloat(zoomEl.value) || 100) / 100);
+        drawCard(); scheduleAutoSave();
+    };
+    zoomEl.addEventListener('input',  zoomHandler);
+    zoomEl.addEventListener('change', zoomHandler);
+
+    document.getElementById('propResetPan').addEventListener('click', () => {
+        comp.imageOffsetX = 0; comp.imageOffsetY = 0;
+        document.getElementById('propPanX').value = 0;
+        document.getElementById('propPanY').value = 0;
+        afterComponentChange();
+    });
+
+    document.getElementById('propResetZoom').addEventListener('click', () => {
+        comp.imageScale = 1;
+        document.getElementById('propZoom').value = 100;
+        afterComponentChange();
+    });
 
     document.getElementById('propChangeImg').addEventListener('click', () => document.getElementById('propImgInput').click());
     document.getElementById('propImgInput').addEventListener('change', e => {
