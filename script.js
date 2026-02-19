@@ -318,6 +318,18 @@ function drawCoverOffset(ctx, img, dx, dy, dw, dh, ox, oy, zoom) {
     ctx.drawImage(img, dx + (dw - sw) / 2 + cx, dy + (dh - sh) / 2 + cy, sw, sh);
 }
 
+// Clamp comp.imageOffsetX/Y to the maximum allowed by its current size and zoom
+function clampImageOffset(comp) {
+    if (!comp._img) return;
+    const w = inToPx(comp.width), h = inToPx(comp.height);
+    const s = Math.max(w / comp._img.width, h / comp._img.height) * (comp.imageScale || 1);
+    const sw = comp._img.width * s, sh = comp._img.height * s;
+    const maxOx = Math.max(0, (sw - w) / 2);
+    const maxOy = Math.max(0, (sh - h) / 2);
+    comp.imageOffsetX = Math.max(-maxOx, Math.min(maxOx, comp.imageOffsetX || 0));
+    comp.imageOffsetY = Math.max(-maxOy, Math.min(maxOy, comp.imageOffsetY || 0));
+}
+
 // ---------- Text component ----------
 function drawTextComp(ctx, comp) {
     const x = inToPx(comp.x);
@@ -617,6 +629,7 @@ function onCanvasMouseMove(e) {
     if (interaction.type === 'pan') {
         comp.imageOffsetX = interaction.origOx + (x - interaction.startX);
         comp.imageOffsetY = interaction.origOy + (y - interaction.startY);
+        clampImageOffset(comp);
         const pxEl = document.getElementById('propPanX');
         const pyEl = document.getElementById('propPanY');
         if (pxEl) pxEl.value = Math.round(comp.imageOffsetX);
@@ -1020,12 +1033,29 @@ function buildImageProps(panel, comp) {
     bindInput('propBorderW',     comp, 'borderWidth',  'f');
     bindInput('propBorderColor', comp, 'borderColor',  'str');
     bindInput('propCornerRadius', comp, 'cornerRadius', 'f');
-    bindInput('propPanX', comp, 'imageOffsetX', 'f');
-    bindInput('propPanY', comp, 'imageOffsetY', 'f');
+
+    // Pan inputs — clamp to image bounds on commit
+    const panXEl = document.getElementById('propPanX');
+    const panYEl = document.getElementById('propPanY');
+    const panHandler = () => {
+        comp.imageOffsetX = parseFloat(panXEl.value) || 0;
+        comp.imageOffsetY = parseFloat(panYEl.value) || 0;
+        clampImageOffset(comp);
+        panXEl.value = Math.round(comp.imageOffsetX);
+        panYEl.value = Math.round(comp.imageOffsetY);
+        drawCard(); scheduleAutoSave();
+    };
+    panXEl.addEventListener('input',  panHandler);
+    panXEl.addEventListener('change', panHandler);
+    panYEl.addEventListener('input',  panHandler);
+    panYEl.addEventListener('change', panHandler);
 
     const zoomEl = document.getElementById('propZoom');
     const zoomHandler = () => {
         comp.imageScale = Math.max(0.1, (parseFloat(zoomEl.value) || 100) / 100);
+        clampImageOffset(comp);
+        panXEl.value = Math.round(comp.imageOffsetX);
+        panYEl.value = Math.round(comp.imageOffsetY);
         drawCard(); scheduleAutoSave();
     };
     zoomEl.addEventListener('input',  zoomHandler);
