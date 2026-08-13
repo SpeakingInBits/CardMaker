@@ -353,6 +353,13 @@ textarea {
     letter-spacing: 0.5px;
 }
 
+.prop-section h4 .prop-hint {
+    font-weight: normal;
+    color: #666;
+    font-size: 10px;
+    text-transform: none;
+}
+
 .prop-row {
     display: flex;
     gap: 8px;
