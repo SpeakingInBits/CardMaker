@@ -1,4 +1,4 @@
-import type { Card } from '../models/Card';
+import type { Deck } from '../models/Deck';
 import type { TextComponent } from '../models/TextComponent';
 
 /** Overlay textarea for editing a text component in place on the canvas. */
@@ -8,14 +8,14 @@ export class InlineTextEditor {
         private readonly canvas: HTMLCanvasElement,
     ) {}
 
-    open(comp: TextComponent, card: Card, onCommit: () => void): void {
+    open(comp: TextComponent, deck: Deck, onCommit: () => void): void {
         // Only one editor at a time.
         this.scroller.querySelectorAll('.inline-text-editor').forEach((el) => el.remove());
 
         const rect = this.canvas.getBoundingClientRect();
         const scaleX = rect.width / this.canvas.width;
         const scaleY = rect.height / this.canvas.height;
-        const bounds = comp.getBounds(card);
+        const bounds = comp.getBounds(deck);
 
         const ta = document.createElement('textarea');
         ta.className = 'inline-text-editor';
@@ -24,7 +24,7 @@ export class InlineTextEditor {
         ta.style.top = `${bounds.y * scaleY}px`;
         ta.style.width = `${Math.max(60, bounds.w * scaleX)}px`;
         ta.style.height = `${Math.max(30, bounds.h * scaleY)}px`;
-        ta.style.fontSize = `${Math.max(10, card.ptToPx(comp.fontSize) * scaleY * 0.9)}px`;
+        ta.style.fontSize = `${Math.max(10, deck.ptToPx(comp.fontSize) * scaleY * 0.9)}px`;
         ta.style.fontFamily = comp.font;
 
         let committed = false;

@@ -15,13 +15,17 @@
                 <button type="button" id="addImageBtn" class="tool-btn">+ Image</button>
                 <input type="file" id="addImageInput" accept="image/*" style="display:none">
                 <span class="toolbar-sep"></span>
+                <button type="button" id="undoBtn" class="tool-btn" title="Undo (Ctrl+Z)" disabled>↶ Undo</button>
+                <button type="button" id="redoBtn" class="tool-btn" title="Redo (Ctrl+Y)" disabled>↷ Redo</button>
+                <span class="toolbar-sep"></span>
                 <button type="button" id="saveTemplateBtn" class="tool-btn">💾 Save</button>
                 <button type="button" id="loadTemplateBtn" class="tool-btn">📂 Load</button>
-                <button type="button" id="exportTemplateBtn" class="tool-btn">📤 Export Template</button>
-                <button type="button" id="importTemplateBtn" class="tool-btn">📥 Import Template</button>
+                <button type="button" id="exportTemplateBtn" class="tool-btn">📤 Export Deck</button>
+                <button type="button" id="importTemplateBtn" class="tool-btn">📥 Import Deck</button>
                 <input type="file" id="importTemplateInput" accept=".json" style="display:none">
                 <span class="toolbar-sep"></span>
                 <button type="button" id="exportPngBtn" class="tool-btn accent">🖼️ Export PNG</button>
+                <button type="button" id="printSheetBtn" class="tool-btn accent">🖨️ Print Sheet</button>
             </div>
         </header>
 
@@ -47,7 +51,13 @@
                 </section>
 
                 <section class="panel">
-                    <h3>🖼️ Background</h3>
+                    <h3>🃏 Cards</h3>
+                    <div id="cardList" class="card-list"></div>
+                    <button type="button" id="addCardBtn" class="small-btn add-card-btn">+ Add Card</button>
+                </section>
+
+                <section class="panel">
+                    <h3>🖼️ Background <span class="panel-face-tag" id="bgFaceTag">front</span></h3>
                     <div class="bg-upload-area" id="bgUploadArea">
                         <span id="bgUploadLabel">Click or drop image</span>
                         <input type="file" id="bgFileInput" accept="image/*" style="display:none">
@@ -64,7 +74,7 @@
                 </section>
 
                 <section class="panel">
-                    <h3>📋 Components</h3>
+                    <h3>📋 Components <span class="panel-face-tag" id="compFaceTag">front</span></h3>
                     <div id="componentList" class="component-list"></div>
                     <p class="hint" id="compListHint">Add text or images using the toolbar</p>
                 </section>
@@ -72,8 +82,22 @@
 
             <!-- Canvas Area -->
             <main class="canvas-area">
-                <div class="canvas-scroller" id="canvasScroller">
-                    <canvas id="cardCanvas"></canvas>
+                <div class="canvas-toolbar">
+                    <div class="face-switch">
+                        <button type="button" id="faceFrontBtn" class="face-btn active">Front</button>
+                        <button type="button" id="faceBackBtn" class="face-btn">Back</button>
+                    </div>
+                    <div class="zoom-controls">
+                        <button type="button" id="zoomOutBtn" class="zoom-btn" title="Zoom out">−</button>
+                        <span id="zoomReadout" class="zoom-readout">Fit</span>
+                        <button type="button" id="zoomInBtn" class="zoom-btn" title="Zoom in">+</button>
+                        <button type="button" id="zoomFitBtn" class="zoom-btn zoom-fit" title="Fit to window">Fit</button>
+                    </div>
+                </div>
+                <div class="canvas-viewport" id="canvasViewport">
+                    <div class="canvas-scroller" id="canvasScroller">
+                        <canvas id="cardCanvas"></canvas>
+                    </div>
                 </div>
             </main>
 
@@ -89,24 +113,53 @@
         </div>
     </div>
 
-    <!-- Template Save/Load Modal -->
+    <!-- Deck Save/Load Modal -->
     <div class="modal-overlay" id="templateModal">
         <div class="modal">
             <div class="modal-header">
-                <h3 id="modalTitle">Save Template</h3>
+                <h3 id="modalTitle">Save Deck</h3>
                 <button type="button" class="modal-close" id="modalClose">✕</button>
             </div>
             <div id="modalSaveSection">
                 <div class="form-group">
-                    <label>Template Name</label>
-                    <input type="text" id="templateNameInput" placeholder="My Card Template">
+                    <label>Deck Name</label>
+                    <input type="text" id="templateNameInput" placeholder="My Deck">
                 </div>
-                <button type="button" id="modalSaveBtn" class="primary-btn">Save Template</button>
+                <button type="button" id="modalSaveBtn" class="primary-btn">Save Deck</button>
             </div>
             <div id="savedTemplatesSection">
-                <h4>Saved Templates</h4>
+                <h4>Saved Decks</h4>
                 <div id="savedTemplatesList" class="template-list"></div>
             </div>
+        </div>
+    </div>
+
+    <!-- Print Sheet Modal -->
+    <div class="modal-overlay" id="printModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3>🖨️ Print Sheet (PDF)</h3>
+                <button type="button" class="modal-close" id="printModalClose">✕</button>
+            </div>
+            <div class="form-row">
+                <label>Paper
+                    <select id="printPaper">
+                        <option value="letter">Letter (8.5 × 11 in)</option>
+                        <option value="a4">A4 (210 × 297 mm)</option>
+                    </select>
+                </label>
+            </div>
+            <label class="check-label">
+                <input type="checkbox" id="printDuplex" checked>
+                Double-sided — add a mirrored backs page after each fronts page
+            </label>
+            <label class="check-label">
+                <input type="checkbox" id="printCutLines" checked>
+                Cut marks in the margins
+            </label>
+            <p class="hint print-info" id="printLayoutInfo"></p>
+            <p class="hint print-tip">Set copies per card in the Cards panel. Print at 100% scale (no “fit to page”), flipping on the long edge.</p>
+            <button type="button" id="printGenerateBtn" class="primary-btn">Generate PDF</button>
         </div>
     </div>
 

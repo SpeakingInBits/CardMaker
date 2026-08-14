@@ -1,4 +1,4 @@
-import type { TemplateData, TemplateRecord } from '../types';
+import type { AnyTemplateData, TemplateData, TemplateRecord } from '../types';
 
 const DB_NAME = 'CardMakerDB';
 const DB_VERSION = 1;
@@ -64,8 +64,8 @@ export class TemplateStore {
         return this.run(AUTOSAVE_STORE, 'readwrite', (s) => s.put({ id: AUTOSAVE_KEY, data }));
     }
 
-    async loadAutosave(): Promise<TemplateData | null> {
-        const record = await this.run<{ id: string; data?: TemplateData } | undefined>(
+    async loadAutosave(): Promise<AnyTemplateData | null> {
+        const record = await this.run<{ id: string; data?: AnyTemplateData } | undefined>(
             AUTOSAVE_STORE,
             'readonly',
             (s) => s.get(AUTOSAVE_KEY),

@@ -23,6 +23,7 @@ export interface PropertiesCallbacks {
     /** Structural change (toggle, image swap) — full refresh including this panel. */
     onFullChange(): void;
     onDelete(id: number): void;
+    onError(message: string): void;
 }
 
 /** Right-sidebar editor for the selected component's properties. */
@@ -41,6 +42,14 @@ export class PropertiesPanel {
         }
         if (comp instanceof TextComponent) this.renderText(comp);
         else if (comp instanceof ImageComponent) this.renderImage(comp);
+    }
+
+    /** Update position/size inputs live during nudges without rebuilding. */
+    syncPosition(comp: { x: number; y: number }): void {
+        const xEl = this.q<HTMLInputElement>('propX');
+        const yEl = this.q<HTMLInputElement>('propY');
+        if (xEl) xEl.value = comp.x.toFixed(3);
+        if (yEl) yEl.value = comp.y.toFixed(3);
     }
 
     /** Update pan/zoom inputs live during canvas pan or wheel zoom. */
@@ -280,7 +289,7 @@ export class PropertiesPanel {
         const panHandler = () => {
             comp.imageOffsetX = parseFloat(panXEl.value) || 0;
             comp.imageOffsetY = parseFloat(panYEl.value) || 0;
-            comp.clampOffsets(this.doc.card);
+            comp.clampOffsets(this.doc.deck);
             panXEl.value = String(Math.round(comp.imageOffsetX));
             panYEl.value = String(Math.round(comp.imageOffsetY));
             this.cb.onLightChange();
@@ -295,7 +304,7 @@ export class PropertiesPanel {
             const v = parseFloat(zoomEl.value);
             if (!Number.isFinite(v)) return;
             comp.imageScale = clamp(v / 100, 0.1, 10);
-            comp.clampOffsets(this.doc.card);
+            comp.clampOffsets(this.doc.deck);
             panXEl.value = String(Math.round(comp.imageOffsetX));
             panYEl.value = String(Math.round(comp.imageOffsetY));
             this.cb.onLightChange();
@@ -311,7 +320,7 @@ export class PropertiesPanel {
 
         this.must('propResetZoom').addEventListener('click', () => {
             comp.imageScale = 1;
-            comp.clampOffsets(this.doc.card);
+            comp.clampOffsets(this.doc.deck);
             this.cb.onFullChange();
         });
 
@@ -325,7 +334,7 @@ export class PropertiesPanel {
                 this.cb.onFullChange();
             } catch (err) {
                 console.error('Failed to load image:', err);
-                alert('Could not load that image. Please try a different file.');
+                this.cb.onError('Could not load that image. Please try a different file.');
             }
         });
 

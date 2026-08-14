@@ -1,7 +1,7 @@
 import type { Bounds, HandleId, ImageComponentData } from '../types';
 import { loadImage, toFiniteNumber } from '../utils/dom';
 import { drawCover, roundedRectPath } from '../rendering/drawUtils';
-import { Card } from './Card';
+import { Deck } from './Deck';
 import { CardComponent, type ResizeOrigin } from './CardComponent';
 
 const MIN_SIZE_IN = 0.1;
@@ -53,10 +53,10 @@ export class ImageComponent extends CardComponent {
     }
 
     /** Keep pan offsets within the range allowed by the current size and zoom. */
-    clampOffsets(card: Card): void {
+    clampOffsets(deck: Deck): void {
         if (!this.image) return;
-        const w = card.inToPx(this.width);
-        const h = card.inToPx(this.height);
+        const w = deck.inToPx(this.width);
+        const h = deck.inToPx(this.height);
         const s = Math.max(w / this.image.width, h / this.image.height) * (this.imageScale || 1);
         const sw = this.image.width * s;
         const sh = this.image.height * s;
@@ -66,12 +66,12 @@ export class ImageComponent extends CardComponent {
         this.imageOffsetY = Math.max(-maxOy, Math.min(maxOy, this.imageOffsetY || 0));
     }
 
-    draw(ctx: CanvasRenderingContext2D, card: Card): void {
-        const x = card.inToPx(this.x);
-        const y = card.inToPx(this.y);
-        const w = card.inToPx(this.width);
-        const h = card.inToPx(this.height);
-        const r = this.cornerRadius > 0 ? card.ptToPx(this.cornerRadius) : 0;
+    draw(ctx: CanvasRenderingContext2D, deck: Deck): void {
+        const x = deck.inToPx(this.x);
+        const y = deck.inToPx(this.y);
+        const w = deck.inToPx(this.width);
+        const h = deck.inToPx(this.height);
+        const r = this.cornerRadius > 0 ? deck.ptToPx(this.cornerRadius) : 0;
 
         if (this.image) {
             ctx.save();
@@ -102,7 +102,7 @@ export class ImageComponent extends CardComponent {
 
         if (this.borderWidth > 0) {
             ctx.save();
-            const bw = card.ptToPx(this.borderWidth);
+            const bw = deck.ptToPx(this.borderWidth);
             ctx.strokeStyle = this.borderColor;
             ctx.lineWidth = bw;
             if (r > 0) {
@@ -116,12 +116,12 @@ export class ImageComponent extends CardComponent {
         }
     }
 
-    getBounds(card: Card): Bounds {
+    getBounds(deck: Deck): Bounds {
         return {
-            x: card.inToPx(this.x),
-            y: card.inToPx(this.y),
-            w: card.inToPx(this.width),
-            h: card.inToPx(this.height),
+            x: deck.inToPx(this.x),
+            y: deck.inToPx(this.y),
+            w: deck.inToPx(this.width),
+            h: deck.inToPx(this.height),
         };
     }
 

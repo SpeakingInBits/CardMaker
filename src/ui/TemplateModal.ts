@@ -1,15 +1,19 @@
 import type { TemplateStore } from '../storage/TemplateStore';
-import type { TemplateData } from '../types';
+import type { AnyTemplateData, TemplateData } from '../types';
 import { byId, escapeHtml } from '../utils/dom';
 
 export interface TemplateModalCallbacks {
     serialize(): TemplateData;
     getName(): string;
     setName(name: string): void;
-    onLoad(data: TemplateData): void;
+    /** Return false to cancel loading (e.g. unsaved-changes guard). */
+    confirmLoad(): boolean;
+    onLoad(data: AnyTemplateData): void;
+    onSaved(name: string): void;
+    onError(message: string): void;
 }
 
-/** Save/Load template dialog backed by the TemplateStore. */
+/** Save/Load deck dialog backed by the TemplateStore. */
 export class TemplateModal {
     private readonly overlay = byId<HTMLElement>('templateModal');
     private readonly title = byId<HTMLElement>('modalTitle');
@@ -29,7 +33,7 @@ export class TemplateModal {
     }
 
     open(mode: 'save' | 'load'): void {
-        this.title.textContent = mode === 'save' ? 'Save Template' : 'Load Template';
+        this.title.textContent = mode === 'save' ? 'Save Deck' : 'Load Deck';
         this.saveSection.style.display = mode === 'save' ? 'block' : 'none';
         if (mode === 'save') this.nameInput.value = this.cb.getName();
         void this.renderList();
@@ -51,9 +55,10 @@ export class TemplateModal {
             });
             await this.renderList();
             this.close();
+            this.cb.onSaved(name);
         } catch (err) {
-            console.error('Failed to save template:', err);
-            alert('Failed to save template. Please try again.');
+            console.error('Failed to save deck:', err);
+            this.cb.onError('Failed to save the deck. Please try again.');
         }
     }
 
@@ -62,11 +67,11 @@ export class TemplateModal {
         try {
             templates = await this.store.listTemplates();
         } catch (err) {
-            console.error('Failed to load templates:', err);
+            console.error('Failed to load saved decks:', err);
         }
 
         if (!templates.length) {
-            this.list.innerHTML = '<p class="hint">No saved templates</p>';
+            this.list.innerHTML = '<p class="hint">No saved decks</p>';
             return;
         }
 
@@ -85,21 +90,21 @@ export class TemplateModal {
         this.list.querySelectorAll<HTMLButtonElement>('.load-btn').forEach((btn) => {
             btn.addEventListener('click', () => {
                 const t = templates.find((t) => t.name === btn.dataset.name);
-                if (t) {
-                    this.cb.onLoad(t.data);
-                    this.close();
-                }
+                if (!t || !this.cb.confirmLoad()) return;
+                this.cb.onLoad(t.data);
+                this.close();
             });
         });
         this.list.querySelectorAll<HTMLButtonElement>('.del-btn').forEach((btn) => {
             btn.addEventListener('click', async () => {
                 const name = btn.dataset.name ?? '';
-                if (!confirm(`Delete template "${name}"? This cannot be undone.`)) return;
+                if (!confirm(`Delete saved deck "${name}"? This cannot be undone.`)) return;
                 try {
                     await this.store.deleteTemplate(name);
                     await this.renderList();
                 } catch (err) {
-                    console.error('Failed to delete template:', err);
+                    console.error('Failed to delete saved deck:', err);
+                    this.cb.onError('Failed to delete the saved deck.');
                 }
             });
         });

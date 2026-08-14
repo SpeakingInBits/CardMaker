@@ -1,4 +1,4 @@
-import { CARD_LIMITS, type Card } from '../models/Card';
+import { CARD_LIMITS, type Deck } from '../models/Deck';
 import { byId, clamp } from '../utils/dom';
 
 export interface CardSettingsCallbacks {
@@ -14,7 +14,7 @@ export class CardSettingsPanel {
     private readonly readout = byId<HTMLElement>('dimReadout');
 
     constructor(
-        private readonly card: () => Card,
+        private readonly deck: () => Deck,
         private readonly cb: CardSettingsCallbacks,
     ) {
         for (const input of [this.widthInput, this.heightInput, this.dpiInput]) {
@@ -25,35 +25,35 @@ export class CardSettingsPanel {
     }
 
     private commit(): void {
-        const card = this.card();
-        card.widthInches = clamp(
-            parseFloat(this.widthInput.value) || card.widthInches,
+        const deck = this.deck();
+        deck.widthInches = clamp(
+            parseFloat(this.widthInput.value) || deck.widthInches,
             CARD_LIMITS.minInches,
             CARD_LIMITS.maxInches,
         );
-        card.heightInches = clamp(
-            parseFloat(this.heightInput.value) || card.heightInches,
+        deck.heightInches = clamp(
+            parseFloat(this.heightInput.value) || deck.heightInches,
             CARD_LIMITS.minInches,
             CARD_LIMITS.maxInches,
         );
-        card.dpi = clamp(parseInt(this.dpiInput.value) || card.dpi, CARD_LIMITS.minDpi, CARD_LIMITS.maxDpi);
-        this.syncFromCard();
+        deck.dpi = clamp(parseInt(this.dpiInput.value) || deck.dpi, CARD_LIMITS.minDpi, CARD_LIMITS.maxDpi);
+        this.syncFromDeck();
         this.cb.onSizeChange();
     }
 
-    /** Push current card values into the inputs (after load/import). */
-    syncFromCard(): void {
-        const card = this.card();
-        this.widthInput.value = String(card.widthInches);
-        this.heightInput.value = String(card.heightInches);
-        this.dpiInput.value = String(card.dpi);
+    /** Push current deck values into the inputs (after load/import). */
+    syncFromDeck(): void {
+        const deck = this.deck();
+        this.widthInput.value = String(deck.widthInches);
+        this.heightInput.value = String(deck.heightInches);
+        this.dpiInput.value = String(deck.dpi);
         this.updateReadout();
     }
 
     private updateReadout(): void {
-        const w = parseFloat(this.widthInput.value) || this.card().widthInches;
-        const h = parseFloat(this.heightInput.value) || this.card().heightInches;
-        const d = parseInt(this.dpiInput.value) || this.card().dpi;
+        const w = parseFloat(this.widthInput.value) || this.deck().widthInches;
+        const h = parseFloat(this.heightInput.value) || this.deck().heightInches;
+        const d = parseInt(this.dpiInput.value) || this.deck().dpi;
         this.readout.textContent = `${Math.round(w * d)} × ${Math.round(h * d)} px`;
     }
 }
