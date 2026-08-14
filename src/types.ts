@@ -2,6 +2,7 @@ export type ComponentType = 'text' | 'image';
 export type BackgroundFit = 'cover' | 'stretch';
 export type TextAlign = 'left' | 'center' | 'right';
 export type HandleId = 'tl' | 'tr' | 'bl' | 'br' | 'r' | 'b';
+export type FaceId = 'front' | 'back';
 
 export interface Point {
     x: number;
@@ -16,13 +17,26 @@ export interface Bounds {
     h: number;
 }
 
-export interface CardData {
+/** Deck-wide physical settings; every card in a deck shares size and DPI. */
+export interface DeckData {
     name: string;
     widthInches: number;
     heightInches: number;
     dpi: number;
+}
+
+export interface FaceData {
     backgroundImageData: string | null;
     backgroundFit: BackgroundFit;
+    components: ComponentData[];
+}
+
+export interface DeckCardData {
+    id: number;
+    name: string;
+    /** How many copies of this card to place on the print sheet. */
+    copies: number;
+    faces: Record<FaceId, FaceData>;
 }
 
 export interface BaseComponentData {
@@ -64,15 +78,30 @@ export interface ImageComponentData extends BaseComponentData {
 
 export type ComponentData = TextComponentData | ImageComponentData;
 
+/** Current (version 3) template format: a deck of cards with front/back faces. */
 export interface TemplateData {
     version: number;
-    card: CardData;
-    components: ComponentData[];
-    nextId: number;
+    deck: DeckData;
+    cards: DeckCardData[];
+    nextCardId: number;
+    nextComponentId: number;
 }
+
+/** Version ≤2 format: a single card face stored flat (migrated on load). */
+export interface LegacyTemplateData {
+    version?: number;
+    card: DeckData & {
+        backgroundImageData?: string | null;
+        backgroundFit?: BackgroundFit;
+    };
+    components: ComponentData[];
+    nextId?: number;
+}
+
+export type AnyTemplateData = TemplateData | LegacyTemplateData;
 
 export interface TemplateRecord {
     name: string;
     savedAt: string;
-    data: TemplateData;
+    data: AnyTemplateData;
 }

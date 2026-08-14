@@ -1,5 +1,5 @@
 import type { Bounds, ComponentData, ComponentType, HandleId, Point } from '../types';
-import type { Card } from './Card';
+import type { Deck } from './Deck';
 
 /** Component geometry captured at the start of a resize drag (inches). */
 export interface ResizeOrigin {
@@ -38,23 +38,23 @@ export abstract class CardComponent {
     /** Which resize handles this component exposes, in hit-test priority order. */
     abstract get handles(): readonly HandleId[];
 
-    abstract draw(ctx: CanvasRenderingContext2D, card: Card): void;
+    abstract draw(ctx: CanvasRenderingContext2D, deck: Deck): void;
 
     /** Pixel-space bounds on the card canvas. */
-    abstract getBounds(card: Card): Bounds;
+    abstract getBounds(deck: Deck): Bounds;
 
     abstract applyResize(handle: HandleId, origin: ResizeOrigin, dxIn: number, dyIn: number): void;
 
     abstract toJSON(): ComponentData;
 
-    getResizeOrigin(card: Card): ResizeOrigin {
-        const bounds = this.getBounds(card);
-        return { x: this.x, y: this.y, w: this.width, h: card.pxToIn(bounds.h) };
+    getResizeOrigin(deck: Deck): ResizeOrigin {
+        const bounds = this.getBounds(deck);
+        return { x: this.x, y: this.y, w: this.width, h: deck.pxToIn(bounds.h) };
     }
 
     /** Is the given canvas-pixel point inside this component's body? */
-    hitTest(card: Card, px: number, py: number): boolean {
-        const { x, y, w, h } = this.getBounds(card);
+    hitTest(deck: Deck, px: number, py: number): boolean {
+        const { x, y, w, h } = this.getBounds(deck);
         return px >= x && px <= x + w && py >= y && py <= y + h;
     }
 
@@ -78,8 +78,8 @@ export abstract class CardComponent {
     }
 
     /** Which handle (if any) is within tolerance of the given canvas-pixel point. */
-    hitHandle(card: Card, px: number, py: number, tolerance: number): HandleId | null {
-        const bounds = this.getBounds(card);
+    hitHandle(deck: Deck, px: number, py: number, tolerance: number): HandleId | null {
+        const bounds = this.getBounds(deck);
         for (const handle of this.handles) {
             const p = this.handlePoint(bounds, handle);
             if (Math.abs(px - p.x) < tolerance && Math.abs(py - p.y) < tolerance) {

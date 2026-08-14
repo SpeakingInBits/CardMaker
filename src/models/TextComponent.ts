@@ -1,7 +1,7 @@
 import type { Bounds, HandleId, TextAlign, TextComponentData } from '../types';
 import { toFiniteNumber } from '../utils/dom';
 import { hexToRgb } from '../rendering/drawUtils';
-import { Card } from './Card';
+import { Deck } from './Deck';
 import { CardComponent, type ResizeOrigin } from './CardComponent';
 
 const LINE_HEIGHT_FACTOR = 1.35;
@@ -51,18 +51,18 @@ export class TextComponent extends CardComponent {
         return `${s}${fontSizePx}px "${this.font}"`;
     }
 
-    draw(ctx: CanvasRenderingContext2D, card: Card): void {
-        const x = card.inToPx(this.x);
-        const y = card.inToPx(this.y);
-        const maxW = card.inToPx(this.width);
-        const fontSize = card.ptToPx(this.fontSize);
+    draw(ctx: CanvasRenderingContext2D, deck: Deck): void {
+        const x = deck.inToPx(this.x);
+        const y = deck.inToPx(this.y);
+        const maxW = deck.inToPx(this.width);
+        const fontSize = deck.ptToPx(this.fontSize);
         const lineH = fontSize * LINE_HEIGHT_FACTOR;
-        const padding = card.ptToPx(this.padding || 0);
+        const padding = deck.ptToPx(this.padding || 0);
 
         ctx.font = this.buildFontString(fontSize);
         const lines = TextComponent.wrapLines(ctx, this.text, maxW - padding * 2);
         const autoH = lines.length * lineH + padding * 2;
-        const totalH = this.height != null && this.height > 0 ? card.inToPx(this.height) : autoH;
+        const totalH = this.height != null && this.height > 0 ? deck.inToPx(this.height) : autoH;
         this.cachedHeightPx = totalH;
 
         if (this.bgOpacity > 0) {
@@ -73,7 +73,7 @@ export class TextComponent extends CardComponent {
 
         if (this.borderWidth > 0) {
             ctx.save();
-            const bw = card.ptToPx(this.borderWidth);
+            const bw = deck.ptToPx(this.borderWidth);
             ctx.strokeStyle = this.borderColor;
             ctx.lineWidth = bw;
             ctx.strokeRect(x + bw / 2, y + bw / 2, maxW - bw, totalH - bw);
@@ -104,12 +104,12 @@ export class TextComponent extends CardComponent {
         });
     }
 
-    getBounds(card: Card): Bounds {
+    getBounds(deck: Deck): Bounds {
         const h =
             this.height != null && this.height > 0
-                ? card.inToPx(this.height)
-                : (this.cachedHeightPx ?? card.ptToPx(this.fontSize) * LINE_HEIGHT_FACTOR);
-        return { x: card.inToPx(this.x), y: card.inToPx(this.y), w: card.inToPx(this.width), h };
+                ? deck.inToPx(this.height)
+                : (this.cachedHeightPx ?? deck.ptToPx(this.fontSize) * LINE_HEIGHT_FACTOR);
+        return { x: deck.inToPx(this.x), y: deck.inToPx(this.y), w: deck.inToPx(this.width), h };
     }
 
     applyResize(handle: HandleId, origin: ResizeOrigin, dxIn: number, dyIn: number): void {

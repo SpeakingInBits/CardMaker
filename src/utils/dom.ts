@@ -22,13 +22,31 @@ export function readFileAsDataURL(file: File): Promise<string> {
     });
 }
 
+// Decode cache so re-loading the same data URL (undo/redo, duplicate card,
+// autosave restore) reuses the already-decoded image instead of decoding again.
+const imageCache = new Map<string, Promise<HTMLImageElement>>();
+const IMAGE_CACHE_LIMIT = 48;
+
 export function loadImage(src: string): Promise<HTMLImageElement> {
-    return new Promise((resolve, reject) => {
+    const cached = imageCache.get(src);
+    if (cached) return cached;
+
+    const promise = new Promise<HTMLImageElement>((resolve, reject) => {
         const img = new Image();
         img.onload = () => resolve(img);
-        img.onerror = () => reject(new Error('Failed to load image'));
+        img.onerror = () => {
+            imageCache.delete(src);
+            reject(new Error('Failed to load image'));
+        };
         img.src = src;
     });
+
+    imageCache.set(src, promise);
+    if (imageCache.size > IMAGE_CACHE_LIMIT) {
+        const oldest = imageCache.keys().next().value;
+        if (oldest !== undefined) imageCache.delete(oldest);
+    }
+    return promise;
 }
 
 export function clamp(value: number, min: number, max: number): number {

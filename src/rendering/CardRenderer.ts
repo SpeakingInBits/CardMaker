@@ -1,10 +1,17 @@
 import type { CardDocument } from '../models/CardDocument';
 import type { CardComponent } from '../models/CardComponent';
-import { drawCover } from './drawUtils';
+import { renderFace } from './faceRenderer';
 
 const SELECTION_COLOR = '#4a90d9';
+const GUIDE_COLOR = '#e94560';
 
-/** Draws the document onto the editor canvas. */
+/** Alignment guide line to overlay on the canvas, in canvas pixels. */
+export interface GuideLine {
+    orientation: 'v' | 'h';
+    positionPx: number;
+}
+
+/** Draws the active face of the active card onto the editor canvas. */
 export class CardRenderer {
     private readonly ctx: CanvasRenderingContext2D;
 
@@ -17,36 +24,20 @@ export class CardRenderer {
         this.ctx = ctx;
     }
 
-    /** Match the canvas pixel size to the card's physical size at its DPI. */
+    /** Match the canvas pixel size to the deck's card size at its DPI. */
     resizeToCard(): void {
-        this.canvas.width = this.doc.card.pxWidth;
-        this.canvas.height = this.doc.card.pxHeight;
+        this.canvas.width = this.doc.deck.pxWidth;
+        this.canvas.height = this.doc.deck.pxHeight;
     }
 
-    render(showHandles = true): void {
-        const { ctx } = this;
-        const card = this.doc.card;
-        const w = this.canvas.width;
-        const h = this.canvas.height;
-
-        ctx.clearRect(0, 0, w, h);
-        ctx.fillStyle = '#ffffff';
-        ctx.fillRect(0, 0, w, h);
-
-        if (card.backgroundImage) {
-            if (card.backgroundFit === 'stretch') {
-                ctx.drawImage(card.backgroundImage, 0, 0, w, h);
-            } else {
-                drawCover(ctx, card.backgroundImage, 0, 0, w, h);
-            }
-        }
-
-        for (const comp of this.doc.components) {
-            comp.draw(ctx, card);
-        }
+    render(showHandles = true, guides: GuideLine[] = []): void {
+        renderFace(this.ctx, this.doc.deck, this.doc.activeFace, this.canvas.width, this.canvas.height);
 
         if (showHandles && this.doc.selected) {
             this.drawSelection(this.doc.selected);
+        }
+        for (const guide of guides) {
+            this.drawGuide(guide);
         }
     }
 
@@ -60,15 +51,15 @@ export class CardRenderer {
 
     /** Size of resize handles in canvas px, scaled with DPI. */
     handleSize(): number {
-        return Math.max(10, this.doc.card.dpi / 22);
+        return Math.max(10, this.doc.deck.dpi / 22);
     }
 
     private drawSelection(comp: CardComponent): void {
         const { ctx } = this;
-        const bounds = comp.getBounds(this.doc.card);
+        const bounds = comp.getBounds(this.doc.deck);
         const { x, y, w, h } = bounds;
-        const dash = Math.max(4, this.doc.card.dpi / 40);
-        const lineWidth = Math.max(2, this.doc.card.dpi / 120);
+        const dash = Math.max(4, this.doc.deck.dpi / 40);
+        const lineWidth = Math.max(2, this.doc.deck.dpi / 120);
 
         ctx.save();
         ctx.strokeStyle = SELECTION_COLOR;
@@ -92,5 +83,24 @@ export class CardRenderer {
         ctx.strokeStyle = SELECTION_COLOR;
         ctx.lineWidth = Math.max(1, size / 5);
         ctx.strokeRect(x, y, size, size);
+    }
+
+    private drawGuide(guide: GuideLine): void {
+        const { ctx } = this;
+        const dpi = this.doc.deck.dpi;
+        ctx.save();
+        ctx.strokeStyle = GUIDE_COLOR;
+        ctx.lineWidth = Math.max(1, dpi / 150);
+        ctx.setLineDash([Math.max(4, dpi / 30), Math.max(3, dpi / 60)]);
+        ctx.beginPath();
+        if (guide.orientation === 'v') {
+            ctx.moveTo(guide.positionPx, 0);
+            ctx.lineTo(guide.positionPx, this.canvas.height);
+        } else {
+            ctx.moveTo(0, guide.positionPx);
+            ctx.lineTo(this.canvas.width, guide.positionPx);
+        }
+        ctx.stroke();
+        ctx.restore();
     }
 }

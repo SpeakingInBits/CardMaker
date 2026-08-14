@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { Card } from './Card';
+import { Deck } from './Deck';
 import { ImageComponent } from './ImageComponent';
 
 function makeComp(): ImageComponent {
@@ -11,7 +11,7 @@ function makeComp(): ImageComponent {
 
 describe('ImageComponent.clampOffsets', () => {
     it('clamps offsets to the coverable overflow at zoom 1', () => {
-        const card = new Card(); // 300 dpi → 1in = 300px square component
+        const card = new Deck(); // 300 dpi → 1in = 300px square component
         const comp = makeComp();
         // Cover scale = max(300/200, 300/100) = 3 → 600x300 drawn in 300x300.
         // Max X offset = (600-300)/2 = 150; max Y offset = 0.
@@ -23,7 +23,7 @@ describe('ImageComponent.clampOffsets', () => {
     });
 
     it('allows more panning when zoomed in', () => {
-        const card = new Card();
+        const card = new Deck();
         const comp = makeComp();
         comp.imageScale = 2;
         comp.imageOffsetY = 9999;
@@ -33,7 +33,7 @@ describe('ImageComponent.clampOffsets', () => {
     });
 
     it('is a no-op without a decoded image', () => {
-        const card = new Card();
+        const card = new Deck();
         const comp = new ImageComponent(1, 0, 0, 1, 1);
         comp.imageOffsetX = 42;
         comp.clampOffsets(card);
