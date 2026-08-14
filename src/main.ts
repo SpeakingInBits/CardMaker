@@ -18,7 +18,8 @@ import { TemplateModal } from './ui/TemplateModal';
 import { ToastManager } from './ui/ToastManager';
 import { ViewportController } from './ui/ViewportController';
 import type { AnyTemplateData, FaceId } from './types';
-import { byId, loadImage, readFileAsDataURL } from './utils/dom';
+import { byId } from './utils/dom';
+import { importImageFile, optimizationMessage, recommendedMaxDimension } from './utils/imageProcessing';
 
 const AUTOSAVE_DELAY_MS = 400;
 const HISTORY_DEBOUNCE_MS = 400;
@@ -61,13 +62,18 @@ class CardMakerApp {
         },
     });
 
-    private readonly backgroundPanel = new BackgroundPanel(() => this.doc.activeFace, {
-        onBackgroundChange: () => {
-            this.renderer.render();
-            this.markChanged(true);
+    private readonly backgroundPanel = new BackgroundPanel(
+        () => this.doc.activeFace,
+        () => this.maxImageDimension(),
+        {
+            onBackgroundChange: () => {
+                this.renderer.render();
+                this.markChanged(true);
+            },
+            onInfo: (msg) => this.toasts.info(msg),
+            onError: (msg) => this.toasts.error(msg),
         },
-        onError: (msg) => this.toasts.error(msg),
-    });
+    );
 
     private readonly cardListPanel = new CardListPanel(this.doc, {
         onSelect: (id) => {
@@ -136,6 +142,7 @@ class CardMakerApp {
         },
         onFullChange: () => this.afterComponentChange(),
         onDelete: (id) => this.deleteComponent(id),
+        onInfo: (msg) => this.toasts.info(msg),
         onError: (msg) => this.toasts.error(msg),
     });
 
@@ -210,8 +217,10 @@ class CardMakerApp {
             addImageInput.value = '';
             if (!file) return;
             try {
-                const dataUrl = await readFileAsDataURL(file);
-                this.doc.addImage(await loadImage(dataUrl), dataUrl);
+                const result = await importImageFile(file, this.maxImageDimension());
+                this.doc.addImage(result.image, result.dataUrl);
+                const msg = optimizationMessage(result);
+                if (msg) this.toasts.info(msg);
                 this.afterComponentChange();
             } catch (err) {
                 console.error('Failed to load image:', err);
@@ -305,6 +314,11 @@ class CardMakerApp {
 
     private editTextInline(comp: TextComponent): void {
         this.inlineEditor.open(comp, this.doc.deck, () => this.afterComponentChange());
+    }
+
+    /** Largest image dimension worth storing for the current card size. */
+    private maxImageDimension(): number {
+        return recommendedMaxDimension(this.doc.deck.pxWidth, this.doc.deck.pxHeight);
     }
 
     /** Record a change: autosave (debounced), dirty flag, history commit. */

@@ -2,7 +2,8 @@ import type { CardDocument } from '../models/CardDocument';
 import { ImageComponent } from '../models/ImageComponent';
 import { TextComponent } from '../models/TextComponent';
 import type { TextAlign } from '../types';
-import { clamp, readFileAsDataURL } from '../utils/dom';
+import { clamp } from '../utils/dom';
+import { importImageFile, optimizationMessage, recommendedMaxDimension } from '../utils/imageProcessing';
 
 export const FONTS = [
     'Arial',
@@ -23,6 +24,7 @@ export interface PropertiesCallbacks {
     /** Structural change (toggle, image swap) — full refresh including this panel. */
     onFullChange(): void;
     onDelete(id: number): void;
+    onInfo(message: string): void;
     onError(message: string): void;
 }
 
@@ -330,7 +332,12 @@ export class PropertiesPanel {
             const file = imgInput.files?.[0];
             if (!file) return;
             try {
-                await comp.setImage(await readFileAsDataURL(file));
+                const deck = this.doc.deck;
+                const result = await importImageFile(file, recommendedMaxDimension(deck.pxWidth, deck.pxHeight));
+                comp.imageData = result.dataUrl;
+                comp.image = result.image;
+                const msg = optimizationMessage(result);
+                if (msg) this.cb.onInfo(msg);
                 this.cb.onFullChange();
             } catch (err) {
                 console.error('Failed to load image:', err);

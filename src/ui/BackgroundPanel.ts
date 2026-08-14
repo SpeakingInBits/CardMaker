@@ -1,10 +1,12 @@
 import type { CardFace } from '../models/CardFace';
 import type { BackgroundFit } from '../types';
-import { byId, readFileAsDataURL } from '../utils/dom';
+import { byId } from '../utils/dom';
+import { importImageFile, optimizationMessage } from '../utils/imageProcessing';
 
 export interface BackgroundCallbacks {
     /** Background image or fit changed — redraw and autosave. */
     onBackgroundChange(): void;
+    onInfo(message: string): void;
     onError(message: string): void;
 }
 
@@ -18,6 +20,7 @@ export class BackgroundPanel {
 
     constructor(
         private readonly face: () => CardFace,
+        private readonly maxImageDimension: () => number,
         private readonly cb: BackgroundCallbacks,
     ) {
         this.area.addEventListener('click', () => this.fileInput.click());
@@ -50,8 +53,12 @@ export class BackgroundPanel {
 
     private async loadFile(file: File): Promise<void> {
         try {
-            const dataUrl = await readFileAsDataURL(file);
-            await this.face().setBackground(dataUrl);
+            const result = await importImageFile(file, this.maxImageDimension());
+            const face = this.face();
+            face.backgroundImageData = result.dataUrl;
+            face.backgroundImage = result.image;
+            const msg = optimizationMessage(result);
+            if (msg) this.cb.onInfo(msg);
             this.syncFromFace();
             this.cb.onBackgroundChange();
         } catch (err) {
