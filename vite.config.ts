@@ -7,5 +7,7 @@ export default defineConfig({
   base: './',
   test: {
     environment: 'node',
+    // Keep Playwright e2e specs (e2e/*.spec.ts) out of the vitest run.
+    include: ['src/**/*.test.ts'],
   },
 });

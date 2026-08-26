@@ -149,6 +149,23 @@
                     </select>
                 </label>
             </div>
+            <div class="form-row" id="printCustomSizeRow" style="display:none">
+                <label>Paper width (in)
+                    <input type="number" id="printCustomWidth" value="8.5" min="1" max="48" step="0.1">
+                </label>
+                <label>Paper height (in)
+                    <input type="number" id="printCustomHeight" value="11" min="1" max="48" step="0.1">
+                </label>
+            </div>
+            <div class="form-row">
+                <label>Page margin (in)
+                    <input type="number" id="printMargin" value="0.25" min="0" max="3" step="0.125">
+                </label>
+                <label>Gap between cards (in)
+                    <input type="number" id="printGap" value="0" min="0" max="2" step="0.0625">
+                </label>
+            </div>
+            <p class="hint">Margin 0 = borderless (needs printer support). Gap 0 shares cut lines; add a gap for easier cutting or lamination.</p>
             <label class="check-label">
                 <input type="checkbox" id="printDuplex" checked>
                 Double-sided — add a mirrored backs page after each fronts page

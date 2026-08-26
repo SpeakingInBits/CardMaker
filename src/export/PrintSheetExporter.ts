@@ -5,14 +5,20 @@ import { renderFaceToCanvas } from '../rendering/faceRenderer';
 import {
     backPosition,
     computePrintLayout,
+    cutPositionsX,
+    cutPositionsY,
     frontPosition,
-    PAPER_SIZES,
-    type PaperId,
+    type PaperSize,
     type PrintLayout,
 } from './printLayout';
 
 export interface PrintOptions {
-    paper: PaperId;
+    /** Resolved paper size — a standard PAPER_SIZES entry or a custom one. */
+    paper: PaperSize;
+    /** Minimum page margin in inches; 0 for borderless printing. */
+    marginIn: number;
+    /** Spacing between adjacent cards in inches; 0 for shared cut lines. */
+    gapIn: number;
     /** Add a mirrored backs page after each fronts page (flip on long edge). */
     duplex: boolean;
     cutLines: boolean;
@@ -23,24 +29,23 @@ export interface PrintResult {
     cards: number;
 }
 
-const PAGE_MARGIN_IN = 0.25;
-
 /** Generates a tiled, duplex-aligned PDF of the whole deck. */
 export class PrintSheetExporter {
     /** Builds the PDF and triggers a download. Throws if the card doesn't fit the paper. */
     async export(doc: CardDocument, opts: PrintOptions): Promise<PrintResult> {
-        const paper = PAPER_SIZES[opts.paper];
+        const { paper } = opts;
         const { deck } = doc;
         const layout = computePrintLayout(
             deck.widthInches,
             deck.heightInches,
             paper,
-            PAGE_MARGIN_IN,
+            opts.marginIn,
+            opts.gapIn,
             doc.totalPrintCount,
         );
         if (!layout) {
             throw new Error(
-                `A ${deck.widthInches}×${deck.heightInches} in card does not fit on ${paper.label} with margins.`,
+                `A ${deck.widthInches}×${deck.heightInches} in card does not fit on ${paper.label} with these margins.`,
             );
         }
 
@@ -92,28 +97,37 @@ export class PrintSheetExporter {
     }
 
     /**
-     * Crop marks outside the card grid: short ticks extending from each grid
+     * Crop marks outside the card grid: short ticks extending from each cut
      * line into the margins, so cuts can be lined up without printing lines
-     * across the cards themselves.
+     * across the cards themselves. With a card gap, each card edge gets its
+     * own tick; the marks are clipped to the page for small/borderless margins.
      */
     private drawCropMarks(pdf: jsPDF, layout: PrintLayout): void {
         const inner = 0.04; // gap between grid edge and mark start
         const outer = 0.18; // mark end, further into the margin
-        const gridRight = layout.originX + layout.cols * layout.cardW;
-        const gridBottom = layout.originY + layout.rows * layout.cardH;
+        const gridRight = layout.originX + layout.cols * layout.cardW + (layout.cols - 1) * layout.gap;
+        const gridBottom = layout.originY + layout.rows * layout.cardH + (layout.rows - 1) * layout.gap;
 
         pdf.setDrawColor(140);
         pdf.setLineWidth(0.004);
 
-        for (let c = 0; c <= layout.cols; c++) {
-            const x = layout.originX + c * layout.cardW;
-            pdf.line(x, layout.originY - outer, x, layout.originY - inner);
-            pdf.line(x, gridBottom + inner, x, gridBottom + outer);
+        for (const x of cutPositionsX(layout)) {
+            pdf.line(x, Math.max(0, layout.originY - outer), x, Math.max(0, layout.originY - inner));
+            pdf.line(
+                x,
+                Math.min(layout.paperH, gridBottom + inner),
+                x,
+                Math.min(layout.paperH, gridBottom + outer),
+            );
         }
-        for (let r = 0; r <= layout.rows; r++) {
-            const y = layout.originY + r * layout.cardH;
-            pdf.line(layout.originX - outer, y, layout.originX - inner, y);
-            pdf.line(gridRight + inner, y, gridRight + outer, y);
+        for (const y of cutPositionsY(layout)) {
+            pdf.line(Math.max(0, layout.originX - outer), y, Math.max(0, layout.originX - inner), y);
+            pdf.line(
+                Math.min(layout.paperW, gridRight + inner),
+                y,
+                Math.min(layout.paperW, gridRight + outer),
+                y,
+            );
         }
     }
 }
